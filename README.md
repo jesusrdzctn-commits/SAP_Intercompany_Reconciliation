@@ -233,10 +233,6 @@ C:\Users\{Usuario}\Documents\Intercompañias\
 - Actualizar nombres de columnas si SAP cambia estructura de reportes
 - Mantener sincronizadas las versiones de pandas/openpyxl
 
-## 👥 Autores
-
-Sistema de Intercompañías - 2025
-
 ## 📄 Licencia
 
 Uso interno - Todos los derechos reservados
