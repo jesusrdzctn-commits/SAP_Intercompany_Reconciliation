@@ -2,16 +2,13 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
 import os
-import time
-import pandas as pd
-import win32com.client as win32
 
 
 class IntercompaniasGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Extracción de Documentos - Intercompañías")
-        self.root.geometry("650x620")
+        self.root.geometry("650x700")
         self.root.resizable(False, False)
         
         # Modern color scheme
@@ -21,6 +18,7 @@ class IntercompaniasGUI:
         self.accent_color = "#2C2C2C"
         self.light_gray = "#F5F5F5"
         self.border_color = "#E0E0E0"
+        self.success_color = "#28A745"
         
         # Configure root background
         self.root.configure(bg=self.bg_color)
@@ -30,10 +28,16 @@ class IntercompaniasGUI:
         
         # Get dynamic output path
         user_profile = os.environ.get('USERPROFILE') or os.path.expanduser('~')
-        self.output_path = os.path.join(user_profile, 'Documents', 'Intercompañias', 'src', 'Output')
+        base_path = os.path.join(user_profile, 'Documents', 'Intercompañias', 'RDA_Intercompanias', 'src')
+        self.input_path = os.path.join(base_path, 'Input', 'Proveedores')
+        self.output_path = os.path.join(base_path, 'Output')
         
+        self._build_ui()
+    
+    def _build_ui(self):
+        """Build the complete user interface"""
         # Create main frame with modern styling
-        main_frame = tk.Frame(root, bg=self.bg_color, padx=30, pady=20)
+        main_frame = tk.Frame(self.root, bg=self.bg_color, padx=30, pady=20)
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Title with modern font
@@ -47,8 +51,21 @@ class IntercompaniasGUI:
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 25))
         
         # ===== Date Section =====
+        self._build_date_section(main_frame)
+        
+        # ===== Sociedades Section =====
+        self._build_sociedades_section(main_frame)
+        
+        # ===== Action Buttons =====
+        self._build_action_buttons(main_frame)
+        
+        # ===== Status and Output Info =====
+        self._build_status_section(main_frame)
+    
+    def _build_date_section(self, parent):
+        """Build the date input section"""
         date_frame = tk.LabelFrame(
-            main_frame, 
+            parent, 
             text="  Intervalo de Tiempo  ", 
             font=('Segoe UI', 10, 'bold'),
             bg=self.bg_color,
@@ -125,10 +142,11 @@ class IntercompaniasGUI:
             bg=self.bg_color,
             fg="#999999"
         ).grid(row=1, column=2, sticky=tk.W)
-        
-        # ===== Sociedades Section =====
+    
+    def _build_sociedades_section(self, parent):
+        """Build the sociedades management section"""
         sociedades_frame = tk.LabelFrame(
-            main_frame, 
+            parent, 
             text="  Sociedades  ", 
             font=('Segoe UI', 10, 'bold'),
             bg=self.bg_color,
@@ -238,50 +256,83 @@ class IntercompaniasGUI:
             activeforeground=self.primary_color
         )
         remove_btn.grid(row=3, column=0, columnspan=3, pady=(10, 0))
-        
-        # ===== Action Buttons =====
-        button_frame = tk.Frame(main_frame, bg=self.bg_color)
+    
+    def _build_action_buttons(self, parent):
+        """Build the main action buttons"""
+        button_frame = tk.Frame(parent, bg=self.bg_color)
         button_frame.grid(row=3, column=0, columnspan=3, pady=(20, 0))
         
-        # Main action button with modern style - MORE VISIBLE
-        self.run_btn = tk.Button(
+        # Download button
+        self.download_btn = tk.Button(
             button_frame, 
-            text="⚡ Correr Descarga de Documentos",
+            text="⚡ Descargar Documentos",
             command=self.run_download,
-            font=('Segoe UI', 12, 'bold'),
+            font=('Segoe UI', 11, 'bold'),
             bg=self.primary_color,
             fg=self.bg_color,
             relief=tk.RAISED,
             bd=2,
-            padx=35,
-            pady=15,
+            padx=30,
+            pady=12,
             cursor="hand2",
             activebackground=self.secondary_color,
             activeforeground=self.bg_color
         )
-        self.run_btn.pack(pady=15)
+        self.download_btn.pack(pady=(0, 10))
         
+        # Consolidation button
+        self.consolidate_btn = tk.Button(
+            button_frame, 
+            text="📊 Consolidación",
+            command=self.run_consolidation,
+            font=('Segoe UI', 11, 'bold'),
+            bg=self.success_color,
+            fg=self.bg_color,
+            relief=tk.RAISED,
+            bd=2,
+            padx=30,
+            pady=12,
+            cursor="hand2",
+            activebackground="#218838",
+            activeforeground=self.bg_color
+        )
+        self.consolidate_btn.pack()
+    
+    def _build_status_section(self, parent):
+        """Build status and information section"""
         # Status label
         self.status_var = tk.StringVar(value="✓ Listo para comenzar")
         status_label = tk.Label(
-            main_frame, 
+            parent, 
             textvariable=self.status_var,
             font=('Segoe UI', 10),
             bg=self.bg_color,
             fg="#666666"
         )
-        status_label.grid(row=4, column=0, columnspan=3, pady=(5, 0))
+        status_label.grid(row=4, column=0, columnspan=3, pady=(15, 0))
         
-        # Output path label
-        output_label = tk.Label(
-            main_frame,
-            text=f"📁 Carpeta de salida: {self.output_path}",
+        # Output path labels
+        input_label = tk.Label(
+            parent,
+            text=f"📥 Carpeta de entrada: {self.input_path}",
             font=('Segoe UI', 8),
             bg=self.bg_color,
             fg="#999999",
             wraplength=550
         )
-        output_label.grid(row=5, column=0, columnspan=3, pady=(8, 0))
+        input_label.grid(row=5, column=0, columnspan=3, pady=(8, 0))
+        
+        output_label = tk.Label(
+            parent,
+            text=f"📤 Carpeta de salida: {self.output_path}",
+            font=('Segoe UI', 8),
+            bg=self.bg_color,
+            fg="#999999",
+            wraplength=550
+        )
+        output_label.grid(row=6, column=0, columnspan=3, pady=(3, 0))
+    
+    # ===== Event Handlers =====
     
     def add_sociedad(self):
         """Add a sociedad to the list"""
@@ -324,107 +375,44 @@ class IntercompaniasGUI:
             messagebox.showerror("Error", "Formato de fecha inválido. Use DD.MM.YYYY")
             return False
     
-    def run_download(self):
-        """Execute the document download process"""
-        # Validate inputs
-        if not self.sociedades_list:
-            messagebox.showerror("Error", "Debe agregar al menos una sociedad")
-            return
-        
-        if not self.validate_dates():
-            return
-        
-        # Confirm action
-        confirm = messagebox.askyesno(
-            "Confirmar", 
-            f"¿Desea iniciar la descarga para {len(self.sociedades_list)} sociedad(es)?\n"
-            f"Periodo: {self.date_from_var.get()} - {self.date_to_var.get()}\n\n"
-            f"Los archivos se guardarán en:\n{self.output_path}"
-        )
-        
-        if not confirm:
-            return
-        
-        # Create output directory if it doesn't exist
-        os.makedirs(self.output_path, exist_ok=True)
-        
-        # Disable button during execution
-        self.run_btn.config(state='disabled', bg="#666666")
-        self.status_var.set("⏳ Procesando... Por favor espere")
+    def get_config(self):
+        """Get current configuration as dictionary"""
+        return {
+            'sociedades': self.sociedades_list,
+            'date_from': self.date_from_var.get(),
+            'date_to': self.date_to_var.get(),
+            'input_path': self.input_path,
+            'output_path': self.output_path
+        }
+    
+    def set_status(self, message):
+        """Update status message"""
+        self.status_var.set(message)
         self.root.update()
-        
-        try:
-            # Import functions here to avoid import errors if module not available
-            from FBL1_Intercompañias import FBL1_Intercompañias, ZFIQ02_Intercompañias, FBL3N
-            
-            # Execute the download process
-            DateFrom = self.date_from_var.get()
-            DateTo = self.date_to_var.get()
-            FolderPath = self.output_path
-            FileName = "FBL1_Intercompañias.xlsx"
-            sociedades = self.sociedades_list
-            
-            # Step 1: FBL1 Download
-            self.status_var.set("📥 Descargando FBL1...")
-            self.root.update()
-            FBL1_Intercompañias(sociedades, DateFrom, DateTo, FolderPath, FileName)
-            FBL1_Intercompañias_File = os.path.join(FolderPath, FileName)
-            
-            time.sleep(5)  # Wait for file to be saved
-            
-            # Close Excel workbook if open
-            try:
-                excel = win32.GetObject(Class="Excel.Application")
-                for wb in list(excel.Workbooks):
-                    try:
-                        if os.path.abspath(wb.FullName) == FBL1_Intercompañias_File:
-                            wb.Close(SaveChanges=False)
-                    except Exception:
-                        pass
-            except:
-                pass  # Excel might not be running
-            
-            # Step 2: ZFIQ02 Download
-            self.status_var.set("📥 Descargando ZFIQ02...")
-            self.root.update()
-            ZFIQ02_FolderPath = FolderPath
-            ZFIQ02_FileName = "ZFIQ02_Intercompañias.xlsx"
-            ZFIQ02_Intercompañias_File = os.path.join(ZFIQ02_FolderPath, ZFIQ02_FileName)
-            ZFIQ02_Intercompañias(sociedades, ZFIQ02_Intercompañias_File)
-            
-            # Step 3: Read FBL1 and extract document numbers
-            self.status_var.set("🔄 Procesando documentos...")
-            self.root.update()
-            df_FBL1 = pd.read_excel(FBL1_Intercompañias_File, engine='openpyxl')
-            colNDocument = df_FBL1.columns[6]
-            resultado = df_FBL1[colNDocument].dropna().astype(str).unique().tolist()
-            
-            # Step 4: FBL3N Download
-            self.status_var.set("📥 Descargando FBL3N...")
-            self.root.update()
-            arr_Sociedades = "\n".join(sociedades)
-            FBL3N(resultado, arr_Sociedades, DateFrom, DateTo)
-            
-            # Success message
-            self.status_var.set("✅ ¡Proceso completado exitosamente!")
-            messagebox.showinfo(
-                "Éxito", 
-                "La descarga de documentos se completó correctamente.\n\n"
-                f"Archivos guardados en:\n{FolderPath}"
-            )
-            
-        except Exception as e:
-            self.status_var.set("❌ Error en el proceso")
-            messagebox.showerror("Error", f"Ocurrió un error durante el proceso:\n\n{str(e)}")
-        
-        finally:
-            # Re-enable button
-            self.run_btn.config(state='normal', bg=self.primary_color)
-            if "completado exitosamente" not in self.status_var.get():
-                self.status_var.set("✓ Listo para comenzar")
+    
+    def disable_buttons(self):
+        """Disable all action buttons"""
+        self.download_btn.config(state='disabled', bg="#666666")
+        self.consolidate_btn.config(state='disabled', bg="#666666")
+    
+    def enable_buttons(self):
+        """Enable all action buttons"""
+        self.download_btn.config(state='normal', bg=self.primary_color)
+        self.consolidate_btn.config(state='normal', bg=self.success_color)
+    
+    # ===== Action Methods (to be implemented in controller) =====
+    
+    def run_download(self):
+        """Placeholder for download functionality - will be overridden by controller"""
+        messagebox.showinfo("Info", "Funcionalidad de descarga no implementada")
+    
+    def run_consolidation(self):
+        """Placeholder for consolidation functionality - will be overridden by controller"""
+        messagebox.showinfo("Info", "Funcionalidad de consolidación no implementada")
 
 
 def main():
+    """Main entry point for standalone GUI testing"""
     root = tk.Tk()
     app = IntercompaniasGUI(root)
     root.mainloop()
