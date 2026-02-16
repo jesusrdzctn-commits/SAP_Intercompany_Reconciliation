@@ -86,72 +86,45 @@ class IntercompaniasController:
         DateFrom = config['date_from']
         DateTo = config['date_to']
         FolderPath = config['input_path']
+        FileName = "FBL1_Intercompañias.xlsx"
         sociedades = config['sociedades']
         
-        # Procesar cada sociedad por separado
-        for idx, sociedad in enumerate(sociedades, 1):
-            self.gui.set_status(f"📥 Procesando sociedad {sociedad} ({idx}/{len(sociedades)})...")
-            
-            # Step 1: FBL1 Download por sociedad
-            self.gui.set_status(f"📥 Descargando FBL1 - {sociedad}...")
-            FileName = f"FBL1_Intercompañias_{sociedad}.xlsx"
-            FBL1_Intercompañias([sociedad], DateFrom, DateTo, FolderPath, FileName)
-            FBL1_Intercompañias_File = os.path.join(FolderPath, FileName)
-            
-            time.sleep(5)  # Wait for file to be saved
-            
-            # Close Excel workbook if open
-            try:
-                excel = win32.GetObject(Class="Excel.Application")
-                for wb in list(excel.Workbooks):
-                    try:
-                        if os.path.abspath(wb.FullName) == FBL1_Intercompañias_File:
-                            wb.Close(SaveChanges=False)
-                    except Exception:
-                        pass
-            except:
-                pass  # Excel might not be running
-            
-            # Step 2: ZFIQ02 Download por sociedad
-            self.gui.set_status(f"📥 Descargando ZFIQ02 - {sociedad}...")
-            ZFIQ02_FileName = f"ZFIQ02_Intercompañias_{sociedad}.xlsx"
-            ZFIQ02_Intercompañias_File = os.path.join(FolderPath, ZFIQ02_FileName)
-            ZFIQ02_Intercompañias([sociedad], ZFIQ02_Intercompañias_File)
-            
-            # Step 3: Read FBL1 and extract document numbers
-            self.gui.set_status(f"📄 Procesando documentos - {sociedad}...")
-            df_FBL1 = pd.read_excel(FBL1_Intercompañias_File, engine='openpyxl')
-            colNDocument = df_FBL1.columns[6]
-            resultado = df_FBL1[colNDocument].dropna().astype(str).unique().tolist()
-            
-            # Step 4: FBL3N Download por sociedad
-            self.gui.set_status(f"📥 Descargando FBL3N - {sociedad}...")
-            FBL3N(resultado, sociedad, DateFrom, DateTo)
-            
-            # Step 5: Save FBL3N with proper name
-            self.gui.set_status(f"💾 Guardando FBL3N - {sociedad}...")
-            time.sleep(3)
-            
-            try:
-                excel = win32.GetObject(Class="Excel.Application")
-                FBL3N_FileName = f"FBL3N_Proveedores_{sociedad}.xlsx"
-                FBL3N_File = os.path.join(FolderPath, FBL3N_FileName)
-                
-                if os.path.exists(FBL3N_File):
-                    os.remove(FBL3N_File)
-                
-                for wb in list(excel.Workbooks):
-                    try:
-                        wb.SaveAs(FBL3N_File)
+        # Step 1: FBL1 Download
+        self.gui.set_status("📥 Descargando FBL1...")
+        FBL1_Intercompañias(sociedades, DateFrom, DateTo, FolderPath, FileName)
+        FBL1_Intercompañias_File = os.path.join(FolderPath, FileName)
+        
+        time.sleep(5)  # Wait for file to be saved
+        
+        # Close Excel workbook if open
+        try:
+            excel = win32.GetObject(Class="Excel.Application")
+            for wb in list(excel.Workbooks):
+                try:
+                    if os.path.abspath(wb.FullName) == FBL1_Intercompañias_File:
                         wb.Close(SaveChanges=False)
-                        break
-                    except Exception:
-                        pass
-            except Exception as e:
-                self.gui.set_status(f"⚠️ Advertencia: Error guardando FBL3N para {sociedad}")
-            
-            self.gui.set_status(f"✅ Sociedad {sociedad} completada ({idx}/{len(sociedades)})")
-            time.sleep(2)
+                except Exception:
+                    pass
+        except:
+            pass  # Excel might not be running
+        
+        # Step 2: ZFIQ02 Download
+        self.gui.set_status("📥 Descargando ZFIQ02...")
+        ZFIQ02_FolderPath = FolderPath
+        ZFIQ02_FileName = "ZFIQ02_Intercompañias.xlsx"
+        ZFIQ02_Intercompañias_File = os.path.join(ZFIQ02_FolderPath, ZFIQ02_FileName)
+        ZFIQ02_Intercompañias(sociedades, ZFIQ02_Intercompañias_File)
+        
+        # Step 3: Read FBL1 and extract document numbers
+        self.gui.set_status("📄 Procesando documentos...")
+        df_FBL1 = pd.read_excel(FBL1_Intercompañias_File, engine='openpyxl')
+        colNDocument = df_FBL1.columns[6]
+        resultado = df_FBL1[colNDocument].dropna().astype(str).unique().tolist()
+        
+        # Step 4: FBL3N Download
+        self.gui.set_status("📥 Descargando FBL3N...")
+        arr_Sociedades = "\n".join(sociedades)
+        FBL3N(resultado, arr_Sociedades, DateFrom, DateTo)
     
     def execute_consolidation(self):
         """Execute the consolidation process"""
@@ -214,15 +187,17 @@ class IntercompaniasController:
         Args:
             config: Configuration dictionary from GUI
         """
+        # Get user profile for dynamic paths
         user_profile = os.environ.get('USERPROFILE') or os.path.expanduser('~')
         base_path = os.path.join(user_profile, 'Documents', 'Intercompañias', 'RDA_Intercompanias', 'src')
         
         ruta_input = os.path.join(base_path, 'Input')
         ruta_output = os.path.join(base_path, 'Output')
         
-        # Ejecutar consolidación (ahora procesa múltiples sociedades automáticamente)
+        # Ejecutar consolidación usando la función importada
+        # Pasamos el método set_status de la GUI como callback para actualizar el estado
         self.gui.set_status("📊 Iniciando consolidación...")
-        archivos_consolidados = ejecutar_consolidacion(
+        archivo_consolidado = ejecutar_consolidacion(
             ruta_input, 
             ruta_output,
             callback_status=self.gui.set_status
@@ -231,4 +206,3 @@ class IntercompaniasController:
         # Mostrar resumen
         num_archivos = len(archivos_consolidados)
         self.gui.set_status(f"✅ {num_archivos} archivo(s) generado(s)")
-
