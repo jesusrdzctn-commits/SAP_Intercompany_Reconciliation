@@ -201,7 +201,7 @@ def FBL3N(resultado,sociedades,DateFrom, DateTo):
     session.findById("wnd[0]/usr/ctxtSD_BUKRS-LOW").caretPosition = 4
     session.findById("wnd[0]/tbar[1]/btn[8]").press()
 
-"""
+
 DateFrom = "01.01.2025"
 DateTo = "31.12.2025"
 FolderPath = r"C:\Users\80337365\Documents\Intercompañias"
@@ -236,4 +236,3 @@ arr_Sociedades = "\n".join(sociedades)
 FBL3N(resultado,arr_Sociedades,DateFrom, DateTo)
 #ZFIQ02 = pd.read_excel(ZFIQ02_Intercompañias_File, engine='openpyxl')
 #print(ZFIQ02.head())
-"""
