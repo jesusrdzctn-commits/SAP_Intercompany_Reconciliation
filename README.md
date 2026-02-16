@@ -236,3 +236,4 @@ Resultado: 3 archivos consolidados
 ## 📄 Licencia
 
 Uso interno - Todos los derechos reservados
+

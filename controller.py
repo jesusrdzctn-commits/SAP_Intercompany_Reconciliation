@@ -231,3 +231,4 @@ class IntercompaniasController:
         # Mostrar resumen
         num_archivos = len(archivos_consolidados)
         self.gui.set_status(f"✅ {num_archivos} archivo(s) generado(s)")
+
