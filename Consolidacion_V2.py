@@ -10,27 +10,43 @@ def clean_all_str(df):
     return df
 
 
-def ejecutar_consolidacion(ruta_input, ruta_output, callback_status=None):
+def ejecutar_consolidacion_por_sociedad(ruta_input, ruta_output, sociedad, callback_status=None):
     """
-    Ejecuta el proceso completo de consolidación de intercompañías.
+    Ejecuta el proceso de consolidación para UNA sociedad específica.
     
     Args:
-        ruta_input (str): Ruta de la carpeta de entrada con los archivos fuente
-        ruta_output (str): Ruta de la carpeta de salida para el archivo consolidado
-        callback_status (function, optional): Función callback para actualizar estado (ej: lambda msg: print(msg))
+        ruta_input (str): Ruta de la carpeta de entrada
+        ruta_output (str): Ruta de la carpeta de salida
+        sociedad (str): Código de la sociedad (ej: 'MX73')
+        callback_status (function, optional): Función callback para actualizar estado
     
     Returns:
         str: Ruta del archivo consolidado generado
-    
-    Raises:
-        FileNotFoundError: Si algún archivo requerido no existe
-        Exception: Si ocurre algún error durante el procesamiento
     """
     
     def update_status(message):
-        """Helper para actualizar estado si hay callback"""
         if callback_status:
             callback_status(message)
+    
+    # Rutas con el nombre de la sociedad
+    archivo_fbl1 = os.path.join(ruta_input, 'Proveedores', f'FBL1_Intercompañias_{sociedad}.xlsx')
+    archivo_zfiq02 = os.path.join(ruta_input, 'Proveedores', f'ZFIQ02_Intercompañias_{sociedad}.xlsx')
+    archivo_fbl3 = os.path.join(ruta_input, 'Proveedores', f'FBL3N_Proveedores_{sociedad}.xlsx')
+    archivo_fbl5 = os.path.join(ruta_input, 'Clientes', f'fbl5n_{sociedad}.xlsx')
+    archivo_fbl3_clientes = os.path.join(ruta_input, 'Clientes', f'FBL3N_Clientes_{sociedad}.xlsx')
+    archivo_cat_clientes = os.path.join(ruta_input, 'Clientes', 'CLIENTES.xlsx')  # Este es común
+    
+    # Verificar archivos
+    archivos_requeridos = [
+        archivo_fbl1, archivo_zfiq02, archivo_fbl3,
+        archivo_fbl5, archivo_fbl3_clientes, archivo_cat_clientes
+    ]
+    
+    for archivo in archivos_requeridos:
+        if not os.path.exists(archivo):
+            raise FileNotFoundError(f"Archivo no encontrado: {archivo}")
+    
+    update_status(f"📄 Procesando FBL1N - {sociedad}...")
     
     # =========================
     # === Rutas y archivos ===
@@ -381,7 +397,7 @@ def ejecutar_consolidacion(ruta_input, ruta_output, callback_status=None):
     # Crear carpeta de salida si no existe
     os.makedirs(ruta_output, exist_ok=True)
     
-    archivo_consolidado = os.path.join(ruta_output, "Intercompanias_Consolidado.xlsx")
+    archivo_consolidado = os.path.join(ruta_output, f"Intercompanias_Consolidado_{sociedad}.xlsx")
     
     with pd.ExcelWriter(archivo_consolidado, engine="openpyxl") as writer:
         # Proveedores
@@ -396,7 +412,7 @@ def ejecutar_consolidacion(ruta_input, ruta_output, callback_status=None):
         fbl3n_cli.to_excel(writer, sheet_name="FBL3N Clientes", index=False)
         matriz_cli.to_excel(writer, sheet_name="Matriz Clientes", index=False)
     
-    update_status("✅ Consolidación completada")
+    update_status(f"✅ Consolidación completada - {sociedad}")
     
     return archivo_consolidado
 
