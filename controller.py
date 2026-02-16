@@ -203,4 +203,6 @@ class IntercompaniasController:
             callback_status=self.gui.set_status
         )
         
-        self.gui.set_status(f"✅ Archivo generado: {os.path.basename(archivo_consolidado)}")
+        # Mostrar resumen
+        num_archivos = len(archivos_consolidados)
+        self.gui.set_status(f"✅ {num_archivos} archivo(s) generado(s)")

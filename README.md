@@ -236,3 +236,4 @@ C:\Users\{Usuario}\Documents\Intercompañias\
 ## 📄 Licencia
 
 Uso interno - Todos los derechos reservados
+
