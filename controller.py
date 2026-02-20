@@ -3,8 +3,8 @@ import time
 import pandas as pd
 import win32com.client as win32
 from tkinter import messagebox
-from FBL1_Intercompañias import FBL1_Intercompañias, ZFIQ02_Intercompañias, FBL3N
-from Consolidacion_V2 import ejecutar_consolidacion
+from FBL1_Intercompañias import FBL1N_Intercompañias, ZFIQ02_Intercompañias, FBL3N
+from Consolidacion_V2 import ejecutar_consolidacion_por_sociedad
 
 
 class IntercompaniasController:
@@ -20,8 +20,8 @@ class IntercompaniasController:
         self.gui = gui
         
         # Bind controller methods to GUI buttons
-        self.gui.run_download = self.execute_download
-        self.gui.run_consolidation = self.execute_consolidation
+        self.gui.on_download = self.execute_download
+        self.gui.on_consolidation = self.execute_consolidation
     
     def execute_download(self):
         """Execute the document download process from SAP"""
@@ -95,7 +95,7 @@ class IntercompaniasController:
             # Step 1: FBL1 Download por sociedad
             self.gui.set_status(f"📥 Descargando FBL1 - {sociedad}...")
             FileName = f"FBL1_Intercompañias_{sociedad}.xlsx"
-            FBL1_Intercompañias([sociedad], DateFrom, DateTo, FolderPath, FileName)
+            FBL1N_Intercompañias([sociedad], DateFrom, DateTo, FolderPath, FileName)
             FBL1_Intercompañias_File = os.path.join(FolderPath, FileName)
             
             time.sleep(5)  # Wait for file to be saved
@@ -220,15 +220,14 @@ class IntercompaniasController:
         ruta_input = os.path.join(base_path, 'Input')
         ruta_output = os.path.join(base_path, 'Output')
         
-        # Ejecutar consolidación (ahora procesa múltiples sociedades automáticamente)
-        self.gui.set_status("📊 Iniciando consolidación...")
-        archivos_consolidados = ejecutar_consolidacion(
-            ruta_input, 
-            ruta_output,
-            callback_status=self.gui.set_status
-        )
+        for sociedad in config['sociedades']:
+            archivo = ejecutar_consolidacion_por_sociedad(
+                ruta_input,
+                ruta_output,
+                sociedad=sociedad,
+                callback_status=self.gui.set_status
+            )
         
         # Mostrar resumen
-        num_archivos = len(archivos_consolidados)
+        num_archivos = len(config['sociedades'])
         self.gui.set_status(f"✅ {num_archivos} archivo(s) generado(s)")
-
