@@ -433,7 +433,7 @@ if __name__ == "__main__":
     ruta_output = os.path.join(base_path, 'Output')
     
     try:
-        archivo_generado = ejecutar_consolidacion(
+        archivo_generado = ejecutar_consolidacion_por_sociedad(
             ruta_input, 
             ruta_output,
             callback_status=lambda msg: print(msg)
