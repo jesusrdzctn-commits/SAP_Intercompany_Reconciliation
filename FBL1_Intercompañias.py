@@ -8,7 +8,7 @@ import locale
 import win32com.client as win32
 import pyperclip
 
-def FBL1_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
+def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
     SapGuiAuto = win32com.client.GetObject('SAPGUI')
     application = SapGuiAuto.GetScriptingEngine
     connection = application.Children(0)
@@ -200,40 +200,3 @@ def FBL3N(resultado,sociedades,DateFrom, DateTo):
     session.findById("wnd[0]/usr/ctxtSD_BUKRS-LOW").setFocus
     session.findById("wnd[0]/usr/ctxtSD_BUKRS-LOW").caretPosition = 4
     session.findById("wnd[0]/tbar[1]/btn[8]").press()
-
-"""
-DateFrom = "01.01.2025"
-DateTo = "31.12.2025"
-FolderPath = r"C:\Users\80337365\Documents\Intercompañias"
-FileName = "FBL1_Intercompañias.xlsx"
-#sociedades = ["MX70","MX00","MX30","MX01", "MX60", "MX21"]
-sociedades = ["MX73","MX30","MX80","MX31","MX60","MX01"]
-FBL1_Intercompañias(sociedades,DateFrom, DateTo, FolderPath, FileName)
-FBL1_Intercompañias_File = os.path.join(FolderPath, FileName)
-time.sleep(5)  # Wait for the file to be fully saved
-
-excel = win32.GetObject(Class="Excel.Application")  # se conecta a Excel abierto
-
-for wb in list(excel.Workbooks):
-        try:
-            if os.path.abspath(wb.FullName) == FBL1_Intercompañias_File:
-                wb.Close(SaveChanges=False)
-        except Exception:
-            pass
-
-ZFIQ02_FolderPath = r"C:\Users\80337365\Documents\Intercompañias"
-ZFIQ02_FileName = "ZFIQ02_Intercompañias.xlsx"
-ZFIQ02_Intercompañias_File = os.path.join(ZFIQ02_FolderPath, ZFIQ02_FileName)
-ZFIQ02_Intercompañias(sociedades,ZFIQ02_Intercompañias_File)
-df_FBL1 = pd.read_excel(FBL1_Intercompañias_File, engine='openpyxl')
-colNDocument = df_FBL1.columns[6]
-
-resultado = df_FBL1[colNDocument].dropna().astype(str).unique().tolist()
-
-pd.Series([resultado]).to_clipboard(index=False, header=False)
-
-arr_Sociedades = "\n".join(sociedades)
-FBL3N(resultado,arr_Sociedades,DateFrom, DateTo)
-#ZFIQ02 = pd.read_excel(ZFIQ02_Intercompañias_File, engine='openpyxl')
-#print(ZFIQ02.head())
-"""
