@@ -25,6 +25,8 @@ class IntercompaniasGUI:
         
         # Variables
         self.sociedades_list = []
+        self.on_download = None
+        self.on_consolidation = None
         
         # Get dynamic output path
         user_profile = os.environ.get('USERPROFILE') or os.path.expanduser('~')
@@ -266,7 +268,7 @@ class IntercompaniasGUI:
         self.download_btn = tk.Button(
             button_frame, 
             text="⚡ Descargar Documentos",
-            command=self.run_download,
+            command=self._handle_download,
             font=('Segoe UI', 11, 'bold'),
             bg=self.primary_color,
             fg=self.bg_color,
@@ -284,7 +286,7 @@ class IntercompaniasGUI:
         self.consolidate_btn = tk.Button(
             button_frame, 
             text="📊 Consolidación",
-            command=self.run_consolidation,
+            command=self._handle_consolidation,
             font=('Segoe UI', 11, 'bold'),
             bg=self.success_color,
             fg=self.bg_color,
@@ -402,14 +404,17 @@ class IntercompaniasGUI:
     
     # ===== Action Methods (to be implemented in controller) =====
     
-    def run_download(self):
-        """Placeholder for download functionality - will be overridden by controller"""
-        messagebox.showinfo("Info", "Funcionalidad de descarga no implementada")
-    
-    def run_consolidation(self):
-        """Placeholder for consolidation functionality - will be overridden by controller"""
-        messagebox.showinfo("Info", "Funcionalidad de consolidación no implementada")
+    def _handle_download(self):
+        if self.on_download:
+            self.on_download()
+        else:
+            messagebox.showinfo("Info", "Funcionalidad no conectada")
 
+    def _handle_consolidation(self):
+        if self.on_consolidation:
+            self.on_consolidation()
+        else:
+            messagebox.showinfo("Info", "Funcionalidad no conectada")
 
 def main():
     """Main entry point for standalone GUI testing"""
