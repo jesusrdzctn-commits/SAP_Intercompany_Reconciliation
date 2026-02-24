@@ -127,7 +127,7 @@ class IntercompaniasController:
             
             # Step 4: FBL3N Download por sociedad
             self.gui.set_status(f"📥 Descargando FBL3N - {sociedad}...")
-            FBL3N(resultado, sociedad, DateFrom, DateTo)
+            FBL3N(resultado, [sociedad], DateFrom, DateTo,FolderPath, FileName)
             
             # Step 5: Save FBL3N with proper name
             self.gui.set_status(f"💾 Guardando FBL3N - {sociedad}...")

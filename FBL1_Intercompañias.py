@@ -130,7 +130,7 @@ def ZFIQ02_Intercompañias(sociedades,ZFIQ02_Intercompañias_File):
     session.findById("wnd[0]/tbar[0]/btn[3]").press()
     #session.findById("wnd[0]/tbar[0]/btn[3]").press()
 
-def FBL3N(resultado,sociedades,DateFrom, DateTo):
+def FBL3N(resultado,sociedades,DateFrom, DateTo,FolderPath,FileName):
     SapGuiAuto = win32com.client.GetObject('SAPGUI')
     application = SapGuiAuto.GetScriptingEngine
     connection = application.Children(0)
@@ -145,26 +145,12 @@ def FBL3N(resultado,sociedades,DateFrom, DateTo):
     session.findById("wnd[0]/usr/ssub%_SUBSCREEN_%_SUB%_CONTAINER:SAPLSSEL:2001/ssubSUBSCREEN_CONTAINER2:SAPLSSEL:2000/cntlSUB_CONTAINER/shellcont/shellcont/shell/shellcont[1]/shell").topNode = "          1"
     session.findById("wnd[0]/usr/ssub%_SUBSCREEN_%_SUB%_CONTAINER:SAPLSSEL:2001/ssubSUBSCREEN_CONTAINER2:SAPLSSEL:2000/cntlSUB_CONTAINER/shellcont/shellcont/shell/shellcont[1]/shell").doubleClickNode("         35")
     session.findById("wnd[0]/usr/ssub%_SUBSCREEN_%_SUB%_CONTAINER:SAPLSSEL:2001/ssubSUBSCREEN_CONTAINER2:SAPLSSEL:2000/ssubSUBSCREEN_CONTAINER:SAPLSSEL:1106/btn%_%%DYN006_%_APP_%-VALU_PUSH").press()
-    #session.findById("wnd[1]/tbar[0]/btn[24]").press()
-    for i, valor in enumerate(resultado, start=0):
-    # Construimos el ID dinámicamente usando el contador en la parte [1,i]
-        field_id = (
-            f"wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/"
-            f"ssubSCREEN_HEADER:SAPLALDB:3010/"
-            f"tblSAPLALDBSINGLE/txtRSCSEL_255-SLOW_I[1,{i}]"
-        )
+    
+    documents = os.linesep.join(resultado)
+    pyperclip.copy(documents)
+    session.findById("wnd[1]/tbar[0]/btn[16]").press()
+    session.findById("wnd[1]/tbar[0]/btn[24]").press()
 
-        # Asignamos el texto
-        session.findById(field_id).text = valor
-
-        # Ponemos el foco
-        session.findById(field_id).setFocus()
-
-        # Ajustamos la posición del cursor (ejemplo: al final del texto)
-        session.findById(field_id).caretPosition = len(valor)
-
-        print(f"Fila {i} completada con valor {valor}")
-        
     session.findById("wnd[1]/tbar[0]/btn[0]").press()
     session.findById("wnd[1]/tbar[0]/btn[8]").press()
     session.findById("wnd[0]/usr/radX_AISEL").select()
@@ -174,8 +160,8 @@ def FBL3N(resultado,sociedades,DateFrom, DateTo):
     session.findById("wnd[0]/usr/ctxtSO_BUDAT-HIGH").text = DateTo
     session.findById("wnd[0]/usr/ctxtSO_BUDAT-HIGH").setFocus
     session.findById("wnd[0]/usr/ctxtSO_BUDAT-HIGH").caretPosition = 10
-    session.findById("wnd[0]/tbar[1]/btn[8]").press()
-    session.findById("wnd[0]/usr/btn%_SP$00002_%_APP_%-VALU_PUSH").press()
+    #session.findById("wnd[0]/tbar[1]/btn[8]").press()
+    session.findById("wnd[0]/usr/btn%_SD_BUKRS_%_APP_%-VALU_PUSH").press()
     for i, valor in enumerate(sociedades, start=0):
     # Construimos el ID dinámicamente usando el contador en la parte [1,i]
         field_id = (
@@ -196,7 +182,17 @@ def FBL3N(resultado,sociedades,DateFrom, DateTo):
         print(f"Fila {i} completada con valor {valor}")
     session.findById("wnd[1]/tbar[0]/btn[0]").press()
     session.findById("wnd[1]/tbar[0]/btn[8]").press()
-    
-    session.findById("wnd[0]/usr/ctxtSD_BUKRS-LOW").setFocus
-    session.findById("wnd[0]/usr/ctxtSD_BUKRS-LOW").caretPosition = 4
+    #Select Layout
+    session.findById("wnd[0]/usr/ctxtPA_VARI").text = "RDA_FBL3N"
+    session.findById("wnd[0]/usr/ctxtPA_VARI").setFocus()
+    session.findById("wnd[0]/usr/ctxtPA_VARI").caretPosition = 9
     session.findById("wnd[0]/tbar[1]/btn[8]").press()
+    session.findById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").select()
+    session.findById("wnd[1]/tbar[0]/btn[0]").press()
+    session.findById("wnd[1]/usr/ctxtDY_PATH").text = FolderPath
+    session.findById("wnd[1]/usr/ctxtDY_FILENAME").text = FileName
+    session.findById("wnd[1]/usr/ctxtDY_FILENAME").caretPosition = 9
+    session.findById("wnd[1]/tbar[0]/btn[11]").press()
+    time.sleep(2)
+    session.findById("wnd[0]/tbar[0]/btn[3]").press()
+    session.findById("wnd[0]/tbar[0]/btn[3]").press()
