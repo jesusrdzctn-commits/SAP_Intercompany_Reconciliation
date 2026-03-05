@@ -8,7 +8,7 @@ import locale
 import win32com.client as win32
 import pyperclip
 
-def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
+def FBL1_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
     SapGuiAuto = win32com.client.GetObject('SAPGUI')
     application = SapGuiAuto.GetScriptingEngine
     connection = application.Children(0)
@@ -72,6 +72,66 @@ def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
     session.findById("wnd[0]/tbar[0]/btn[3]").press()
     session.findById("wnd[0]/tbar[0]/btn[3]").press()
     #session.findById("wnd[0]/tbar[0]/btn[3]").press()
+
+def FBL5_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
+    SapGuiAuto = win32com.client.GetObject('SAPGUI')
+    application = SapGuiAuto.GetScriptingEngine
+    connection = application.Children(0)
+    session = connection.Children(0)
+    session.findById("wnd[0]").maximize
+    session.findById("wnd[0]").maximize
+    session.findById("wnd[0]/tbar[0]/okcd").text = "FBL5"
+    session.findById("wnd[0]").sendVKey(0)
+    session.findById("wnd[0]/usr/ctxtDD_KUNNR-LOW").text = "200000"
+    session.findById("wnd[0]/usr/ctxtDD_KUNNR-HIGH").text = "299999"
+    session.findById("wnd[0]/usr/ctxtDD_BUKRS-LOW").setFocus
+    session.findById("wnd[0]/usr/ctxtDD_BUKRS-LOW").caretPosition = 0
+    session.findById("wnd[0]/usr/btn%_DD_BUKRS_%_APP_%-VALU_PUSH").press()
+    session.findById("wnd[1]/tbar[0]/btn[16]").press()
+    session.findById("wnd[1]/tbar[0]/btn[24]").press()
+    for i, valor in enumerate(sociedades, start=0):
+    # Construimos el ID dinámicamente usando el contador en la parte [1,i]
+        field_id = (
+            f"wnd[1]/usr/tabsTAB_STRIP/tabpSIVA/"
+            f"ssubSCREEN_HEADER:SAPLALDB:3010/"
+            f"tblSAPLALDBSINGLE/ctxtRSCSEL_255-SLOW_I[1,{i}]"
+        )
+
+        # Asignamos el texto
+        session.findById(field_id).text = valor
+
+        # Ponemos el foco
+        session.findById(field_id).setFocus()
+
+        # Ajustamos la posición del cursor (ejemplo: al final del texto)
+        session.findById(field_id).caretPosition = len(valor)
+
+        print(f"Fila {i} completada con valor {valor}")
+
+    session.findById("wnd[1]/tbar[0]/btn[8]").press()
+    session.findById("wnd[0]/usr/radX_AISEL").select()
+    session.findById("wnd[0]/usr/chkX_SHBV").selected = True
+    session.findById("wnd[0]/usr/chkX_MERK").selected = True
+    session.findById("wnd[0]/usr/chkX_PARK").selected = True
+    session.findById("wnd[0]/usr/ctxtSO_BUDAT-LOW").text = DateFrom
+    session.findById("wnd[0]/usr/ctxtSO_BUDAT-HIGH").text = Date_To
+    session.findById("wnd[0]/usr/ctxtPA_VARI").text = "PYTHON"
+    #Descarga de archivo
+    session.findById("wnd[0]").sendVKey(8)
+    #session.findById("wnd[0]/tbar[1]/btn[8]").press
+    #session.findById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").press
+    session.findById("wnd[0]").sendVKey(16)
+    time.sleep(2)
+    session.findById("wnd[0]").sendVKey(8)
+    #session.findById("wnd[1]/tbar[0]/btn[0]").Setfocus
+    #session.findById("wnd[1]/tbar[0]/btn[0]").press
+    session.findById("wnd[1]/usr/ctxtDY_PATH").text = FolderPath
+    session.findById("wnd[1]/usr/ctxtDY_FILENAME").text = FileName
+    session.findById("wnd[1]/usr/ctxtDY_FILENAME").caretPosition = 9
+    session.findById("wnd[1]/tbar[0]/btn[11]").press()
+    
+    session.findById("wnd[0]/tbar[0]/btn[3]").press()
+    session.findById("wnd[0]/tbar[0]/btn[3]").press()
 
 def ZFIQ02_Intercompañias(sociedades,ZFIQ02_Intercompañias_File):
     SapGuiAuto = win32com.client.GetObject('SAPGUI')
