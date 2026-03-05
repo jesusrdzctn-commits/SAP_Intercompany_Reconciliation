@@ -8,7 +8,7 @@ import locale
 import win32com.client as win32
 import pyperclip
 
-def FBL1_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
+def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
     SapGuiAuto = win32com.client.GetObject('SAPGUI')
     application = SapGuiAuto.GetScriptingEngine
     connection = application.Children(0)
@@ -17,8 +17,8 @@ def FBL1_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
     session.findById("wnd[0]").maximize
     session.findById("wnd[0]/tbar[0]/okcd").text = "FBL1"
     session.findById("wnd[0]").sendVKey(0)
-    session.findById("wnd[0]/usr/ctxtKD_LIFNR-LOW").text = "6000000000"
-    session.findById("wnd[0]/usr/ctxtKD_LIFNR-HIGH").text = "6999999999"
+    session.findById("wnd[0]/usr/ctxtKD_LIFNR-LOW").text = "4000000000"
+    session.findById("wnd[0]/usr/ctxtKD_LIFNR-HIGH").text = "7399999999"
     session.findById("wnd[0]/usr/ctxtKD_BUKRS-LOW").setFocus
     session.findById("wnd[0]/usr/ctxtKD_BUKRS-LOW").caretPosition = 2
     #session.findById("wnd[0]").sendVKey(2)

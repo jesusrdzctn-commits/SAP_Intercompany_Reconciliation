@@ -4,7 +4,7 @@ import time
 import pandas as pd
 import win32com.client as win32
 from tkinter import messagebox
-from FBL1_Intercompañias import FBL1N_Intercompañias, ZFIQ02_Intercompañias, FBL3N
+from FBL1_Intercompañias import FBL1N_Intercompañias, ZFIQ02_Intercompañias, FBL3N, FBL5_Intercompañias
 from Consolidacion_V2 import ejecutar_consolidacion_por_sociedad
 
 
@@ -50,6 +50,7 @@ class IntercompaniasController:
         
         # Create output directory if it doesn't exist
         os.makedirs(config['input_path'], exist_ok=True)
+        os.makedirs(config['clientes_path'], exist_ok=True)
         
         # Disable buttons during execution
         self.gui.disable_buttons()
@@ -87,6 +88,7 @@ class IntercompaniasController:
         DateFrom = config['date_from']
         DateTo = config['date_to']
         FolderPath = config['input_path']
+        ClientesPath = config['clientes_path']
         sociedades = config['sociedades']
         
         # Procesar cada sociedad por separado
@@ -95,7 +97,7 @@ class IntercompaniasController:
             
             # Step 1: FBL1 Download por sociedad
             self.gui.set_status(f"📥 Descargando FBL1 - {sociedad}...")
-            FileName = f"FBL1_Intercompañias_{sociedad}.xlsx"
+            FileName = f"FBL1_Proveedores_{sociedad}.xlsx"
             FBL1N_Intercompañias([sociedad], DateFrom, DateTo, FolderPath, FileName)
             FBL1_Intercompañias_File = os.path.join(FolderPath, FileName)
             
@@ -115,7 +117,7 @@ class IntercompaniasController:
             
             # Step 2: ZFIQ02 Download por sociedad
             self.gui.set_status(f"📥 Descargando ZFIQ02 - {sociedad}...")
-            ZFIQ02_FileName = f"ZFIQ02_Intercompañias_{sociedad}.xlsx"
+            ZFIQ02_FileName = f"ZFIQ02_Proveedores_{sociedad}.xlsx"
             ZFIQ02_Intercompañias_File = os.path.join(FolderPath, ZFIQ02_FileName)
             ZFIQ02_Intercompañias([sociedad], ZFIQ02_Intercompañias_File)
             
@@ -151,6 +153,27 @@ class IntercompaniasController:
             except Exception as e:
                 self.gui.set_status(f"⚠️ Advertencia: Error guardando FBL3N para {sociedad}")
             
+            self.gui.set_status(f"✅ Sociedad {sociedad} completada ({idx}/{len(sociedades)})")
+            time.sleep(2)
+
+            self.gui.set_status(f"📥 Descargando FBL5N - {sociedad}...")
+            FBL5_FileName = f"FBL5N_Clientes_{sociedad}.xlsx"
+            FBL5_File = os.path.join(ClientesPath, FBL5_FileName)
+            FBL5_Intercompañias([sociedad], DateFrom, DateTo, ClientesPath, FBL5_FileName)
+
+            time.sleep(5)
+
+            try:
+                excel = win32.GetObject(Class="Excel.Application")
+                for wb in list(excel.Workbooks):
+                    try:
+                        if os.path.abspath(wb.FullName) == os.path.abspath(FBL5_File):
+                            wb.Close(SaveChanges=False)
+                    except Exception:
+                        pass
+            except:
+                pass
+
             self.gui.set_status(f"✅ Sociedad {sociedad} completada ({idx}/{len(sociedades)})")
             time.sleep(2)
     
