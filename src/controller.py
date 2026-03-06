@@ -4,7 +4,7 @@ import time
 import pandas as pd
 import win32com.client as win32
 from tkinter import messagebox
-from FBL1_Intercompañias import FBL1N_Intercompañias, ZFIQ02_Intercompañias, FBL3N, FBL5_Intercompañias
+from DescargaSAP import FBL1N_Intercompañias, ZFIQ02_Intercompañias, FBL3N, FBL5_Intercompañias
 from Consolidacion_V2 import ejecutar_consolidacion_por_sociedad
 
 
@@ -42,7 +42,8 @@ class IntercompaniasController:
             "Confirmar", 
             f"¿Desea iniciar la descarga para {len(config['sociedades'])} sociedad(es)?\n"
             f"Periodo: {config['date_from']} - {config['date_to']}\n\n"
-            f"Los archivos se guardarán en:\n{config['input_path']}"
+            f"Los archivos de proveedores se guardarán en:\n{config['input_path']}\n\n"
+            f"Los archivos de clientes se guardarán en:\n{config['clientes_path']}"
         )
         
         if not confirm:
@@ -65,7 +66,8 @@ class IntercompaniasController:
             messagebox.showinfo(
                 "Éxito", 
                 "La descarga de documentos se completó correctamente.\n\n"
-                f"Archivos guardados en:\n{config['input_path']}"
+                f"Archivos de proveedores guardados en:\n{config['input_path']}\n\n"
+                f"Archivos de clientes guardados en:\n{config['clientes_path']}"
             )
             
         except Exception as e:
@@ -97,9 +99,9 @@ class IntercompaniasController:
             
             # Step 1: FBL1 Download por sociedad
             self.gui.set_status(f"📥 Descargando FBL1 - {sociedad}...")
-            FileName = f"FBL1_Proveedores_{sociedad}.xlsx"
-            FBL1N_Intercompañias([sociedad], DateFrom, DateTo, FolderPath, FileName)
-            FBL1_Intercompañias_File = os.path.join(FolderPath, FileName)
+            FBL1_FileName = f"FBL1_Proveedores_{sociedad}.xlsx"
+            FBL1N_Intercompañias([sociedad], DateFrom, DateTo, FolderPath, FBL1_FileName)
+            FBL1_Intercompañias_File = os.path.join(FolderPath, FBL1_FileName)
             
             time.sleep(5)  # Wait for file to be saved
             
@@ -127,31 +129,18 @@ class IntercompaniasController:
             colNDocument = df_FBL1.columns[6]
             resultado = df_FBL1[colNDocument].dropna().astype(str).unique().tolist()
             
-            # Step 4: FBL3N Download por sociedad
+            # Step 4: FBL3N Download por sociedad (nombre correcto desde el inicio)
             self.gui.set_status(f"📥 Descargando FBL3N - {sociedad}...")
-            FBL3N(resultado, [sociedad], DateFrom, DateTo,FolderPath, FileName)
+            FBL3N_FileName = f"FBL3N_Proveedores_{sociedad}.xlsx"
+            FBL3N_File = os.path.join(FolderPath, FBL3N_FileName)
             
-            # Step 5: Save FBL3N with proper name
-            self.gui.set_status(f"💾 Guardando FBL3N - {sociedad}...")
+            # Eliminar archivo previo si existe
+            if os.path.exists(FBL3N_File):
+                os.remove(FBL3N_File)
+            
+            FBL3N(resultado, [sociedad], DateFrom, DateTo, FolderPath, FBL3N_FileName)
+            
             time.sleep(3)
-            
-            try:
-                excel = win32.GetObject(Class="Excel.Application")
-                FBL3N_FileName = f"FBL3N_Proveedores_{sociedad}.xlsx"
-                FBL3N_File = os.path.join(FolderPath, FBL3N_FileName)
-                
-                if os.path.exists(FBL3N_File):
-                    os.remove(FBL3N_File)
-                
-                for wb in list(excel.Workbooks):
-                    try:
-                        wb.SaveAs(FBL3N_File)
-                        wb.Close(SaveChanges=False)
-                        break
-                    except Exception:
-                        pass
-            except Exception as e:
-                self.gui.set_status(f"⚠️ Advertencia: Error guardando FBL3N para {sociedad}")
             
             self.gui.set_status(f"✅ Sociedad {sociedad} completada ({idx}/{len(sociedades)})")
             time.sleep(2)
@@ -186,7 +175,8 @@ class IntercompaniasController:
         confirm = messagebox.askyesno(
             "Confirmar Consolidación", 
             "¿Desea ejecutar el proceso de consolidación?\n\n"
-            f"Se leerán archivos de:\n{config['input_path']}\n\n"
+            f"Se leerán archivos de proveedores de:\n{config['input_path']}\n"
+            f"Se leerán archivos de clientes de:\n{config['clientes_path']}\n\n"
             f"El archivo consolidado se guardará en:\n{config['output_path']}"
         )
         
