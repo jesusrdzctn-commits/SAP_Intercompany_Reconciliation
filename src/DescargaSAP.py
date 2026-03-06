@@ -52,18 +52,13 @@ def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
     session.findById("wnd[1]/tbar[0]/btn[8]").press()
     session.findById("wnd[0]/usr/ctxtSO_BUDAT-LOW").text = DateFrom
     session.findById("wnd[0]/usr/ctxtSO_BUDAT-HIGH").text = Date_To
-    session.findById("wnd[0]/usr/ctxtPA_VARI").text = "/TAXVJG"
+    session.findById("wnd[0]/usr/ctxtPA_VARI").text = "TAXVJG"
     session.findById("wnd[0]/usr/ctxtPA_VARI").setFocus
     session.findById("wnd[0]/usr/ctxtPA_VARI").caretPosition = 7
     #Descarga de archivo
     session.findById("wnd[0]").sendVKey(8)
-    #session.findById("wnd[0]/tbar[1]/btn[8]").press
-    #session.findById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").press
-    session.findById("wnd[0]").sendVKey(16)
-    time.sleep(2)
-    session.findById("wnd[0]").sendVKey(8)
-    #session.findById("wnd[1]/tbar[0]/btn[0]").Setfocus
-    #session.findById("wnd[1]/tbar[0]/btn[0]").press
+    session.findById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").select()
+    session.findById("wnd[1]/tbar[0]/btn[0]").press()
     session.findById("wnd[1]/usr/ctxtDY_PATH").text = FolderPath
     session.findById("wnd[1]/usr/ctxtDY_FILENAME").text = FileName
     session.findById("wnd[1]/usr/ctxtDY_FILENAME").caretPosition = 9
