@@ -8,7 +8,7 @@ import locale
 import win32com.client as win32
 import pyperclip
 
-def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
+def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName, account_from="4000000000", account_to="7399999999"):
     SapGuiAuto = win32com.client.GetObject('SAPGUI')
     application = SapGuiAuto.GetScriptingEngine
     connection = application.Children(0)
@@ -17,8 +17,8 @@ def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
     session.findById("wnd[0]").maximize
     session.findById("wnd[0]/tbar[0]/okcd").text = "FBL1"
     session.findById("wnd[0]").sendVKey(0)
-    session.findById("wnd[0]/usr/ctxtKD_LIFNR-LOW").text = "4000000000"
-    session.findById("wnd[0]/usr/ctxtKD_LIFNR-HIGH").text = "7399999999"
+    session.findById("wnd[0]/usr/ctxtKD_LIFNR-LOW").text  = account_from
+    session.findById("wnd[0]/usr/ctxtKD_LIFNR-HIGH").text = account_to
     session.findById("wnd[0]/usr/ctxtKD_BUKRS-LOW").setFocus
     session.findById("wnd[0]/usr/ctxtKD_BUKRS-LOW").caretPosition = 2
     #session.findById("wnd[0]").sendVKey(2)
@@ -52,7 +52,7 @@ def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
     session.findById("wnd[1]/tbar[0]/btn[8]").press()
     session.findById("wnd[0]/usr/ctxtSO_BUDAT-LOW").text = DateFrom
     session.findById("wnd[0]/usr/ctxtSO_BUDAT-HIGH").text = Date_To
-    session.findById("wnd[0]/usr/ctxtPA_VARI").text = "TAXVJG"
+    session.findById("wnd[0]/usr/ctxtPA_VARI").text = "/TAXVJG"
     session.findById("wnd[0]/usr/ctxtPA_VARI").setFocus
     session.findById("wnd[0]/usr/ctxtPA_VARI").caretPosition = 7
     #Descarga de archivo
@@ -68,7 +68,7 @@ def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
     session.findById("wnd[0]/tbar[0]/btn[3]").press()
     #session.findById("wnd[0]/tbar[0]/btn[3]").press()
 
-def FBL5_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
+def FBL5_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName, account_from="200000", account_to="299999"):
     SapGuiAuto = win32com.client.GetObject('SAPGUI')
     application = SapGuiAuto.GetScriptingEngine
     connection = application.Children(0)
@@ -77,8 +77,8 @@ def FBL5_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName):
     session.findById("wnd[0]").maximize
     session.findById("wnd[0]/tbar[0]/okcd").text = "FBL5"
     session.findById("wnd[0]").sendVKey(0)
-    session.findById("wnd[0]/usr/ctxtDD_KUNNR-LOW").text = "200000"
-    session.findById("wnd[0]/usr/ctxtDD_KUNNR-HIGH").text = "299999"
+    session.findById("wnd[0]/usr/ctxtDD_KUNNR-LOW").text = account_from
+    session.findById("wnd[0]/usr/ctxtDD_KUNNR-HIGH").text = account_to
     session.findById("wnd[0]/usr/ctxtDD_BUKRS-LOW").setFocus
     session.findById("wnd[0]/usr/ctxtDD_BUKRS-LOW").caretPosition = 0
     session.findById("wnd[0]/usr/btn%_DD_BUKRS_%_APP_%-VALU_PUSH").press()
