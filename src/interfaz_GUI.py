@@ -34,6 +34,14 @@ class IntercompaniasGUI:
         self.input_path = os.path.join(base_path, 'Input', 'Proveedores')
         self.clientes_path = os.path.join(base_path, 'Input', 'Clientes')
         self.output_path = os.path.join(base_path, 'Output')
+
+        # Variables by default (placeholders waiting for the user to input them)
+        self.date_from_var = tk.StringVar(value="01.01.2025")
+        self.date_to_var   = tk.StringVar(value="31.12.2025")
+        self.fbl1n_range_from_var = tk.StringVar(value="4000000000")
+        self.fbl1n_range_to_var   = tk.StringVar(value="7399999999")
+        self.fbl5n_range_from_var = tk.StringVar(value="200000")
+        self.fbl5n_range_to_var   = tk.StringVar(value="299999")
         
         self._build_ui()
     
@@ -66,85 +74,95 @@ class IntercompaniasGUI:
         self._build_status_section(main_frame)
     
     def _build_date_section(self, parent):
-        """Build the date input section"""
+        """Build the date input section alongside account range inputs"""
+        outer_frame = tk.Frame(parent, bg=self.bg_color)
+        outer_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 18))
+
+        # ── Columna izquierda: Intervalo de tiempo ──────────────────────
         date_frame = tk.LabelFrame(
-            parent, 
-            text="  Intervalo de Tiempo  ", 
+            outer_frame,
+            text="  Intervalo de Tiempo  ",
             font=('Segoe UI', 10, 'bold'),
-            bg=self.bg_color,
-            fg=self.primary_color,
-            bd=1,
-            relief=tk.SOLID,
-            padx=15,
-            pady=15
+            bg=self.bg_color, fg=self.primary_color,
+            bd=1, relief=tk.SOLID, padx=15, pady=15
         )
-        date_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 18))
-        
-        # FROM Date
-        tk.Label(
-            date_frame, 
-            text="Fecha Desde:", 
-            font=('Segoe UI', 9),
-            bg=self.bg_color,
-            fg=self.secondary_color
-        ).grid(row=0, column=0, sticky=tk.W, pady=8)
-        
-        self.date_from_var = tk.StringVar(value="01.01.2025")
+        date_frame.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.W, tk.E), padx=(0, 10))
+
+        tk.Label(date_frame, text="Fecha Desde:", font=('Segoe UI', 9),
+                bg=self.bg_color, fg=self.secondary_color).grid(row=0, column=0, sticky=tk.W, pady=8)
         self.date_from_entry = tk.Entry(
-            date_frame, 
-            textvariable=self.date_from_var, 
-            width=15,
-            font=('Segoe UI', 10),
-            bg=self.light_gray,
-            fg=self.primary_color,
-            relief=tk.FLAT,
-            bd=1,
-            highlightthickness=1,
-            highlightbackground=self.border_color,
-            highlightcolor=self.primary_color
+            date_frame, textvariable=self.date_from_var, width=13,
+            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
+            relief=tk.FLAT, bd=1, highlightthickness=1,
+            highlightbackground=self.border_color, highlightcolor=self.primary_color
         )
-        self.date_from_entry.grid(row=0, column=1, padx=10, pady=8, sticky=tk.W)
-        
-        tk.Label(
-            date_frame, 
-            text="(DD.MM.YYYY)", 
-            font=('Segoe UI', 8),
-            bg=self.bg_color,
-            fg="#999999"
-        ).grid(row=0, column=2, sticky=tk.W)
-        
-        # TO Date
-        tk.Label(
-            date_frame, 
-            text="Fecha Hasta:", 
-            font=('Segoe UI', 9),
-            bg=self.bg_color,
-            fg=self.secondary_color
-        ).grid(row=1, column=0, sticky=tk.W, pady=8)
-        
-        self.date_to_var = tk.StringVar(value="31.12.2025")
+        self.date_from_entry.grid(row=0, column=1, padx=8, pady=8, sticky=tk.W)
+        tk.Label(date_frame, text="(DD.MM.YYYY)", font=('Segoe UI', 8),
+                bg=self.bg_color, fg="#999999").grid(row=0, column=2, sticky=tk.W)
+
+        tk.Label(date_frame, text="Fecha Hasta:", font=('Segoe UI', 9),
+                bg=self.bg_color, fg=self.secondary_color).grid(row=1, column=0, sticky=tk.W, pady=8)
         self.date_to_entry = tk.Entry(
-            date_frame, 
-            textvariable=self.date_to_var, 
-            width=15,
-            font=('Segoe UI', 10),
-            bg=self.light_gray,
-            fg=self.primary_color,
-            relief=tk.FLAT,
-            bd=1,
-            highlightthickness=1,
-            highlightbackground=self.border_color,
-            highlightcolor=self.primary_color
+            date_frame, textvariable=self.date_to_var, width=13,
+            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
+            relief=tk.FLAT, bd=1, highlightthickness=1,
+            highlightbackground=self.border_color, highlightcolor=self.primary_color
         )
-        self.date_to_entry.grid(row=1, column=1, padx=10, pady=8, sticky=tk.W)
-        
-        tk.Label(
-            date_frame, 
-            text="(DD.MM.YYYY)", 
-            font=('Segoe UI', 8),
-            bg=self.bg_color,
-            fg="#999999"
-        ).grid(row=1, column=2, sticky=tk.W)
+        self.date_to_entry.grid(row=1, column=1, padx=8, pady=8, sticky=tk.W)
+        tk.Label(date_frame, text="(DD.MM.YYYY)", font=('Segoe UI', 8),
+                bg=self.bg_color, fg="#999999").grid(row=1, column=2, sticky=tk.W)
+
+        # ── Columna derecha: Rangos de cuentas ─────────────────────────
+        range_frame = tk.LabelFrame(
+            outer_frame,
+            text="  Rangos de Cuentas  ",
+            font=('Segoe UI', 10, 'bold'),
+            bg=self.bg_color, fg=self.primary_color,
+            bd=1, relief=tk.SOLID, padx=15, pady=15
+        )
+        range_frame.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+
+        # FBL1N
+        tk.Label(range_frame, text="FBL1N  Desde:", font=('Segoe UI', 9),
+                bg=self.bg_color, fg=self.secondary_color).grid(row=0, column=0, sticky=tk.W, pady=4)
+        tk.Entry(
+            range_frame, textvariable=self.fbl1n_range_from_var, width=14,
+            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
+            relief=tk.FLAT, bd=1, highlightthickness=1,
+            highlightbackground=self.border_color, highlightcolor=self.primary_color
+        ).grid(row=0, column=1, padx=8, pady=4, sticky=tk.W)
+
+        tk.Label(range_frame, text="FBL1N  Hasta:", font=('Segoe UI', 9),
+                bg=self.bg_color, fg=self.secondary_color).grid(row=1, column=0, sticky=tk.W, pady=4)
+        tk.Entry(
+            range_frame, textvariable=self.fbl1n_range_to_var, width=14,
+            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
+            relief=tk.FLAT, bd=1, highlightthickness=1,
+            highlightbackground=self.border_color, highlightcolor=self.primary_color
+        ).grid(row=1, column=1, padx=8, pady=4, sticky=tk.W)
+
+        # Separador visual
+        tk.Frame(range_frame, bg=self.border_color, height=1).grid(
+            row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=6)
+
+        # FBL5N
+        tk.Label(range_frame, text="FBL5N  Desde:", font=('Segoe UI', 9),
+                bg=self.bg_color, fg=self.secondary_color).grid(row=3, column=0, sticky=tk.W, pady=4)
+        tk.Entry(
+            range_frame, textvariable=self.fbl5n_range_from_var, width=14,
+            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
+            relief=tk.FLAT, bd=1, highlightthickness=1,
+            highlightbackground=self.border_color, highlightcolor=self.primary_color
+        ).grid(row=3, column=1, padx=8, pady=4, sticky=tk.W)
+
+        tk.Label(range_frame, text="FBL5N  Hasta:", font=('Segoe UI', 9),
+                bg=self.bg_color, fg=self.secondary_color).grid(row=4, column=0, sticky=tk.W, pady=4)
+        tk.Entry(
+            range_frame, textvariable=self.fbl5n_range_to_var, width=14,
+            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
+            relief=tk.FLAT, bd=1, highlightthickness=1,
+            highlightbackground=self.border_color, highlightcolor=self.primary_color
+        ).grid(row=4, column=1, padx=8, pady=4, sticky=tk.W)
     
     def _build_sociedades_section(self, parent):
         """Build the sociedades management section"""
@@ -386,7 +404,11 @@ class IntercompaniasGUI:
             'date_to': self.date_to_var.get(),
             'input_path': self.input_path,
             'clientes_path': self.clientes_path,
-            'output_path': self.output_path
+            'output_path': self.output_path,
+            'fbl1n_range_from': self.fbl1n_range_from_var.get().strip(),
+            'fbl1n_range_to':   self.fbl1n_range_to_var.get().strip(),
+            'fbl5n_range_from': self.fbl5n_range_from_var.get().strip(),
+            'fbl5n_range_to':   self.fbl5n_range_to_var.get().strip(),
         }
     
     def set_status(self, message):
