@@ -92,6 +92,10 @@ class IntercompaniasController:
         FolderPath = config['input_path']
         ClientesPath = config['clientes_path']
         sociedades = config['sociedades']
+        fbl1n_from = config['fbl1n_range_from']
+        fbl1n_to   = config['fbl1n_range_to']
+        fbl5n_from = config['fbl5n_range_from']
+        fbl5n_to   = config['fbl5n_range_to']
         
         # Procesar cada sociedad por separado
         for idx, sociedad in enumerate(sociedades, 1):
@@ -100,7 +104,7 @@ class IntercompaniasController:
             # Step 1: FBL1 Download por sociedad
             self.gui.set_status(f"📥 Descargando FBL1 - {sociedad}...")
             FBL1_FileName = f"FBL1_Proveedores_{sociedad}.xlsx"
-            FBL1N_Intercompañias([sociedad], DateFrom, DateTo, FolderPath, FBL1_FileName)
+            FBL1N_Intercompañias([sociedad], DateFrom, DateTo, FolderPath, FBL1_FileName, fbl1n_from, fbl1n_to)
             FBL1_Intercompañias_File = os.path.join(FolderPath, FBL1_FileName)
             
             time.sleep(5)  # Wait for file to be saved
@@ -145,10 +149,11 @@ class IntercompaniasController:
             self.gui.set_status(f"✅ Sociedad {sociedad} completada ({idx}/{len(sociedades)})")
             time.sleep(2)
 
+            # Step 5: FBL5N Download por sociedad (nombre correcto desde el inicio)
             self.gui.set_status(f"📥 Descargando FBL5N - {sociedad}...")
             FBL5_FileName = f"FBL5N_Clientes_{sociedad}.xlsx"
             FBL5_File = os.path.join(ClientesPath, FBL5_FileName)
-            FBL5_Intercompañias([sociedad], DateFrom, DateTo, ClientesPath, FBL5_FileName)
+            FBL5_Intercompañias([sociedad], DateFrom, DateTo, ClientesPath, FBL5_FileName, fbl5n_from, fbl5n_to)
 
             time.sleep(5)
 
@@ -162,6 +167,24 @@ class IntercompaniasController:
                         pass
             except:
                 pass
+
+            # --- NUEVO: Leer FBL5N y extraer Nº Documento (columna I = índice 8) ---
+            self.gui.set_status(f"📄 Procesando documentos clientes - {sociedad}...")
+            df_FBL5 = pd.read_excel(FBL5_File, engine='openpyxl')
+            colNDocument_cli = df_FBL5.columns[8]  # Columna I
+            resultado_cli = df_FBL5[colNDocument_cli].dropna().astype(str).unique().tolist()
+
+            # --- NUEVO: FBL3N Clientes ---
+            self.gui.set_status(f"📥 Descargando FBL3N Clientes - {sociedad}...")
+            FBL3N_Clientes_FileName = f"FBL3N_Clientes_{sociedad}.xlsx"
+            FBL3N_Clientes_File = os.path.join(ClientesPath, FBL3N_Clientes_FileName)
+
+            if os.path.exists(FBL3N_Clientes_File):
+                os.remove(FBL3N_Clientes_File)
+
+            FBL3N(resultado_cli, [sociedad], DateFrom, DateTo, ClientesPath, FBL3N_Clientes_FileName)
+
+            time.sleep(3)
 
             self.gui.set_status(f"✅ Sociedad {sociedad} completada ({idx}/{len(sociedades)})")
             time.sleep(2)
