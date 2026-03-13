@@ -104,7 +104,9 @@ class IntercompaniasController:
             # Step 1: FBL1 Download por sociedad
             self.gui.set_status(f"📥 Descargando FBL1 - {sociedad}...")
             FBL1_FileName = f"FBL1_Proveedores_{sociedad}.xlsx"
-            FBL1N_Intercompañias([sociedad], DateFrom, DateTo, FolderPath, FBL1_FileName, fbl1n_from, fbl1n_to)
+            fbl1n_con_datos = FBL1N_Intercompañias(
+                [sociedad], DateFrom, DateTo, FolderPath, FBL1_FileName, fbl1n_from, fbl1n_to
+            )
             FBL1_Intercompañias_File = os.path.join(FolderPath, FBL1_FileName)
             
             time.sleep(5)  # Wait for file to be saved
@@ -118,7 +120,7 @@ class IntercompaniasController:
                             wb.Close(SaveChanges=False)
                     except Exception:
                         pass
-            except:
+            except Exception:
                 pass  # Excel might not be running
             
             # Step 2: ZFIQ02 Download por sociedad
@@ -128,32 +130,45 @@ class IntercompaniasController:
             ZFIQ02_Intercompañias([sociedad], ZFIQ02_Intercompañias_File)
             
             # Step 3: Read FBL1 and extract document numbers
-            self.gui.set_status(f"📄 Procesando documentos - {sociedad}...")
-            df_FBL1 = pd.read_excel(FBL1_Intercompañias_File, engine='openpyxl')
-            colNDocument = df_FBL1.columns[6]
-            resultado = df_FBL1[colNDocument].dropna().astype(str).unique().tolist()
+            #self.gui.set_status(f"📄 Procesando documentos - {sociedad}...")
+            #df_FBL1 = pd.read_excel(FBL1_Intercompañias_File, engine='openpyxl')
+            #colNDocument = df_FBL1.columns[6]
+            #resultado = df_FBL1[colNDocument].dropna().astype(str).unique().tolist()
             
             # Step 4: FBL3N Download por sociedad (nombre correcto desde el inicio)
             self.gui.set_status(f"📥 Descargando FBL3N - {sociedad}...")
             FBL3N_FileName = f"FBL3N_Proveedores_{sociedad}.xlsx"
             FBL3N_File = os.path.join(FolderPath, FBL3N_FileName)
+
+            if fbl1n_con_datos:
+                self.gui.set_status(f"📄 Procesando documentos - {sociedad}...")
+                df_FBL1 = pd.read_excel(FBL1_Intercompañias_File, engine='openpyxl')
+                colNDocument = df_FBL1.columns[6]
+                resultado = df_FBL1[colNDocument].dropna().astype(str).unique().tolist()
+
+                self.gui.set_status(f"📥 Descargando FBL3N - {sociedad}...")
+                if os.path.exists(FBL3N_File):
+                    os.remove(FBL3N_File)
+                FBL3N(resultado, [sociedad], DateFrom, DateTo, FolderPath, FBL3N_FileName)
+                time.sleep(3)
+            else:
+                self.gui.set_status(f"⚠️ FBL1N sin movimientos - {sociedad}, se omite FBL3N Proveedores")
+                # Crear archivo vacío para que la consolidación no falle
+                import openpyxl as _oxl
+                wb_vacio = _oxl.Workbook(); wb_vacio.active.title = "Sin datos"
+                wb_vacio.save(FBL3N_File)
             
-            # Eliminar archivo previo si existe
-            if os.path.exists(FBL3N_File):
-                os.remove(FBL3N_File)
             
-            FBL3N(resultado, [sociedad], DateFrom, DateTo, FolderPath, FBL3N_FileName)
-            
-            time.sleep(3)
-            
-            self.gui.set_status(f"✅ Sociedad {sociedad} completada ({idx}/{len(sociedades)})")
+            self.gui.set_status(f"✅ Proveedores {sociedad} completados ({idx}/{len(sociedades)})")
             time.sleep(2)
 
             # Step 5: FBL5N Download por sociedad (nombre correcto desde el inicio)
             self.gui.set_status(f"📥 Descargando FBL5N - {sociedad}...")
             FBL5_FileName = f"FBL5N_Clientes_{sociedad}.xlsx"
             FBL5_File = os.path.join(ClientesPath, FBL5_FileName)
-            FBL5_Intercompañias([sociedad], DateFrom, DateTo, ClientesPath, FBL5_FileName, fbl5n_from, fbl5n_to)
+            fbl5n_con_datos = FBL5_Intercompañias(
+                [sociedad], DateFrom, DateTo, ClientesPath, FBL5_FileName, fbl5n_from, fbl5n_to
+            )
 
             time.sleep(5)
 
@@ -165,26 +180,48 @@ class IntercompaniasController:
                             wb.Close(SaveChanges=False)
                     except Exception:
                         pass
-            except:
+            except Exception:
                 pass
 
             # --- NUEVO: Leer FBL5N y extraer Nº Documento (columna I = índice 8) ---
-            self.gui.set_status(f"📄 Procesando documentos clientes - {sociedad}...")
-            df_FBL5 = pd.read_excel(FBL5_File, engine='openpyxl')
-            colNDocument_cli = df_FBL5.columns[8]  # Columna I
-            resultado_cli = df_FBL5[colNDocument_cli].dropna().astype(str).unique().tolist()
+            #self.gui.set_status(f"📄 Procesando documentos clientes - {sociedad}...")
+            #df_FBL5 = pd.read_excel(FBL5_File, engine='openpyxl')
+            #colNDocument_cli = df_FBL5.columns[8]  # Columna I
+            #resultado_cli = df_FBL5[colNDocument_cli].dropna().astype(str).unique().tolist()
 
             # --- NUEVO: FBL3N Clientes ---
             self.gui.set_status(f"📥 Descargando FBL3N Clientes - {sociedad}...")
             FBL3N_Clientes_FileName = f"FBL3N_Clientes_{sociedad}.xlsx"
             FBL3N_Clientes_File = os.path.join(ClientesPath, FBL3N_Clientes_FileName)
 
-            if os.path.exists(FBL3N_Clientes_File):
-                os.remove(FBL3N_Clientes_File)
+            if fbl5n_con_datos:
+                self.gui.set_status(f"📄 Procesando documentos clientes - {sociedad}...")
+                df_FBL5 = pd.read_excel(FBL5_File, engine='openpyxl')
+                colNDocument_cli = df_FBL5.columns[8]
+                resultado_cli = df_FBL5[colNDocument_cli].dropna().astype(str).unique().tolist()
 
-            FBL3N(resultado_cli, [sociedad], DateFrom, DateTo, ClientesPath, FBL3N_Clientes_FileName)
+                self.gui.set_status(f"📥 Descargando FBL3N Clientes - {sociedad}...")
+                if os.path.exists(FBL3N_Clientes_File):
+                    os.remove(FBL3N_Clientes_File)
+                FBL3N(resultado_cli, [sociedad], DateFrom, DateTo, ClientesPath, FBL3N_Clientes_FileName)
+                time.sleep(3)
+            else:
+                self.gui.set_status(f"⚠️ FBL5N sin movimientos - {sociedad}, se omite FBL3N Clientes")
+                import openpyxl as _oxl
+                wb_vacio = _oxl.Workbook(); wb_vacio.active.title = "Sin datos"
+                wb_vacio.save(FBL3N_Clientes_File)
 
-            time.sleep(3)
+            # Guardar flags para que la consolidación los use
+            flags_sin_movimientos = {
+                'sin_proveedores': not fbl1n_con_datos,
+                'sin_clientes':    not fbl5n_con_datos,
+            }
+            # Escribir los flags en un archivo JSON por sociedad para que
+            # execute_consolidation los pueda leer aunque se ejecute por separado
+            import json
+            flags_path = os.path.join(FolderPath, f"_flags_{sociedad}.json")
+            with open(flags_path, 'w') as f:
+                json.dump(flags_sin_movimientos, f)
 
             self.gui.set_status(f"✅ Sociedad {sociedad} completada ({idx}/{len(sociedades)})")
             time.sleep(2)
@@ -251,6 +288,8 @@ class IntercompaniasController:
         Args:
             config: Configuration dictionary from GUI
         """
+        import json
+
         user_profile = os.environ.get('USERPROFILE') or os.path.expanduser('~')
         base_path = os.path.join(user_profile, 'Documents', 'Intercompañias', 'RDA_Intercompanias', 'src')
         
@@ -258,10 +297,22 @@ class IntercompaniasController:
         ruta_output = os.path.join(base_path, 'Output')
         
         for sociedad in config['sociedades']:
+            # Leer flags de sin movimientos dejados por la descarga (si existen)
+            flags_path = os.path.join(ruta_input, 'Proveedores', f"_flags_{sociedad}.json")
+            flags = {'sin_proveedores': False, 'sin_clientes': False}
+            if os.path.exists(flags_path):
+                try:
+                    with open(flags_path) as f:
+                        flags = json.load(f)
+                except Exception:
+                    pass
+
             archivo = ejecutar_consolidacion_por_sociedad(
                 ruta_input,
                 ruta_output,
                 sociedad=sociedad,
+                sin_proveedores=flags['sin_proveedores'],
+                sin_clientes=flags['sin_clientes'],
                 callback_status=self.gui.set_status
             )
         

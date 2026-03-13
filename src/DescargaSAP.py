@@ -57,6 +57,12 @@ def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName, ac
     session.findById("wnd[0]/usr/ctxtPA_VARI").caretPosition = 7
     #Descarga de archivo
     session.findById("wnd[0]").sendVKey(8)
+    time.sleep(1)
+    # --- Detectar mensaje "Sin partidas" (MSITEM033) ---
+    ruta_completa = os.path.join(FolderPath, FileName)
+    if _verificar_sin_partidas(session, ruta_completa):
+        return False  # sin datos — archivo vacío ya creado
+    
     session.findById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").select()
     session.findById("wnd[1]/tbar[0]/btn[0]").press()
     session.findById("wnd[1]/usr/ctxtDY_PATH").text = FolderPath
@@ -66,7 +72,83 @@ def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName, ac
     
     session.findById("wnd[0]/tbar[0]/btn[3]").press()
     session.findById("wnd[0]/tbar[0]/btn[3]").press()
-    #session.findById("wnd[0]/tbar[0]/btn[3]").press()
+    return True  # con datos
+
+def _verificar_sin_partidas(session, ruta_archivo):
+    """
+    Detecta el mensaje MSITEM033 'No se ha seleccionado ninguna partida'.
+    Si aparece, cierra el popup, crea un Excel vacío como placeholder y
+    devuelve True para que el llamador sepa que no hay datos y debe saltar
+    la exportación normal.
+
+    Args:
+        session   : Sesión SAP activa.
+        ruta_archivo (str): Ruta completa donde se crearía el archivo vacío.
+
+    Returns:
+        bool: True si SAP reportó sin partidas (archivo vacío creado),
+              False si hay datos y se puede continuar normalmente.
+    """
+    try:
+        # SAP muestra el error en la barra de status (wnd[0]/sbar) o como popup wnd[1]
+        # Intentamos leer el texto de la barra de estado primero
+        sbar_text = session.findById("wnd[0]/sbar").Text.strip()
+    except Exception:
+        sbar_text = ""
+
+    sin_partidas = "MSITEM033" in sbar_text or "ninguna partida" in sbar_text.lower()
+
+    # También puede venir como wnd[1] modal
+    if not sin_partidas:
+        try:
+            msg = session.findById("wnd[1]/usr/txtMESSTXT1").Text.strip()
+            sin_partidas = "ninguna partida" in msg.lower() or "MSITEM033" in msg
+        except Exception:
+            pass
+
+    if sin_partidas:
+        print(f"[SAP] Sin partidas para este criterio → creando archivo vacío: {ruta_archivo}")
+        # Cerrar el popup si existe
+        try:
+            session.findById("wnd[1]/tbar[0]/btn[0]").press()
+        except Exception:
+            pass
+        # Volver a pantalla de selección (F3)
+        try:
+            session.findById("wnd[0]/tbar[0]/btn[3]").press()
+        except Exception:
+            pass
+        # Crear Excel vacío para que el resto del flujo no falle por archivo faltante
+        import openpyxl as _oxl
+        wb = _oxl.Workbook()
+        wb.active.title = "Sin datos"
+        os.makedirs(os.path.dirname(ruta_archivo), exist_ok=True)
+        wb.save(ruta_archivo)
+        return True
+
+    return False
+    
+def _cerrar_popup_subsidiaria(session, max_intentos=100):
+    """
+    Detecta y cierra el popup de subsidiaria/central que aparece en FBL5N.
+    El diálogo avisa que una cuenta es sucursal y pregunta si incluir partidas
+    de la central. Se presiona 'Continuar' (Enter / btn[0]) hasta que desaparezca.
+
+    Args:
+        session: Sesión SAP activa.
+        max_intentos: Número máximo de cuentas/popups a confirmar antes de abortar.
+    """
+    for _ in range(max_intentos):
+        try:
+            # wnd[1] existe → puede ser el popup de subsidiaria u otro diálogo
+            ventana = session.findById("wnd[1]")
+            titulo = ventana.Text.strip().lower()
+            session.findById("wnd[1]/tbar[0]/btn[0]").press()
+            time.sleep(0.5)
+            print(f"[FBL5N] Popup cerrado (título: '{titulo}')")
+        except Exception:
+            # wnd[1] ya no existe → no hay más popups pendientes
+            break
 
 def FBL5_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName, account_from="200000", account_to="299999"):
     SapGuiAuto = win32com.client.GetObject('SAPGUI')
@@ -113,13 +195,16 @@ def FBL5_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName, acc
     session.findById("wnd[0]/usr/ctxtPA_VARI").text = "PYTHON"
     #Descarga de archivo
     session.findById("wnd[0]").sendVKey(8)
-    #session.findById("wnd[0]/tbar[1]/btn[8]").press
-    #session.findById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").press
-    session.findById("wnd[0]").sendVKey(16)
     time.sleep(2)
-    session.findById("wnd[0]").sendVKey(8)
-    #session.findById("wnd[1]/tbar[0]/btn[0]").Setfocus
-    #session.findById("wnd[1]/tbar[0]/btn[0]").press
+    _cerrar_popup_subsidiaria(session)
+
+    # --- Detectar mensaje "Sin partidas" (MSITEM033) ---
+    ruta_completa = os.path.join(FolderPath, FileName)
+    if _verificar_sin_partidas(session, ruta_completa):
+        return False  # sin datos — archivo vacío ya creado
+
+    session.findById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").select()
+    session.findById("wnd[1]/tbar[0]/btn[0]").press()
     session.findById("wnd[1]/usr/ctxtDY_PATH").text = FolderPath
     session.findById("wnd[1]/usr/ctxtDY_FILENAME").text = FileName
     session.findById("wnd[1]/usr/ctxtDY_FILENAME").caretPosition = 9
@@ -127,6 +212,7 @@ def FBL5_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName, acc
     
     session.findById("wnd[0]/tbar[0]/btn[3]").press()
     session.findById("wnd[0]/tbar[0]/btn[3]").press()
+    return True  # con datos
 
 def ZFIQ02_Intercompañias(sociedades,ZFIQ02_Intercompañias_File):
     SapGuiAuto = win32com.client.GetObject('SAPGUI')
