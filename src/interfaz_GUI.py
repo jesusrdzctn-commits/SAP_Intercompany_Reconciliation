@@ -54,6 +54,7 @@ class IntercompaniasGUI:
             user_profile, "Documents", "Intercompañias", "RDA_Intercompanias", "src"
         )
         self.input_path = os.path.join(base_path, "Input", "Proveedores")
+        self.clientes_path = os.path.join(base_path, "Input", "Clientes")
         self.output_path = os.path.join(base_path, "Output")
         self.config_path = os.path.join(base_path, "config")
 
@@ -255,7 +256,15 @@ class IntercompaniasGUI:
         )
         sociedades_frame.pack(fill="x", pady=(0, 20))
 
-        input_frame = tk.Frame(sociedades_frame, bg=self.bg_color)
+        # Contenedor horizontal: lista de sociedades (izquierda) | rangos (derecha)
+        content_frame = tk.Frame(sociedades_frame, bg=self.bg_color)
+        content_frame.pack(fill="x")
+
+        # ── Columna izquierda: lista de sociedades ──────────────────────────
+        left_frame = tk.Frame(content_frame, bg=self.bg_color)
+        left_frame.pack(side=tk.LEFT, fill="both", expand=True)
+
+        input_frame = tk.Frame(left_frame, bg=self.bg_color)
         input_frame.pack(fill="x", pady=(0, 10))
 
         tk.Label(
@@ -301,14 +310,14 @@ class IntercompaniasGUI:
         add_btn.pack(side=tk.LEFT)
 
         tk.Label(
-            sociedades_frame,
+            left_frame,
             text="Sociedades Seleccionadas:",
             font=("Segoe UI", 9),
             bg=self.bg_color,
             fg=self.secondary_color,
         ).pack(anchor="w", pady=(10, 5))
 
-        listbox_frame = tk.Frame(sociedades_frame, bg=self.bg_color)
+        listbox_frame = tk.Frame(left_frame, bg=self.bg_color)
         listbox_frame.pack(fill="x", pady=5)
 
         scrollbar = tk.Scrollbar(listbox_frame, bg=self.light_gray)
@@ -317,7 +326,7 @@ class IntercompaniasGUI:
         self.sociedades_listbox = tk.Listbox(
             listbox_frame,
             height=5,
-            width=60,
+            width=40,
             font=("Segoe UI", 9),
             bg=self.light_gray,
             fg=self.primary_color,
@@ -334,7 +343,7 @@ class IntercompaniasGUI:
         scrollbar.config(command=self.sociedades_listbox.yview)
 
         remove_btn = tk.Button(
-            sociedades_frame,
+            left_frame,
             text="Eliminar Seleccionada",
             command=self.remove_sociedad,
             font=("Segoe UI", 9),
@@ -348,7 +357,107 @@ class IntercompaniasGUI:
             activebackground=self.light_gray,
             activeforeground=self.primary_color,
         )
-        remove_btn.pack(pady=(10, 0))
+        remove_btn.pack(pady=(10, 0), anchor="w")
+
+        # ── Separador vertical ──────────────────────────────────────────────
+        sep = tk.Frame(content_frame, bg=self.border_color, width=1)
+        sep.pack(side=tk.LEFT, fill="y", padx=15)
+
+        # ── Columna derecha: rangos de cuentas ──────────────────────────────
+        right_frame = tk.Frame(content_frame, bg=self.bg_color)
+        right_frame.pack(side=tk.LEFT, fill="y", padx=(0, 5))
+
+        tk.Label(
+            right_frame,
+            text="Rangos de cuentas",
+            font=("Segoe UI", 9, "bold"),
+            bg=self.bg_color,
+            fg=self.primary_color,
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
+
+        # FBL1N
+        tk.Label(
+            right_frame,
+            text="FBL1N (proveedores):",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).grid(row=1, column=0, sticky="w", pady=4)
+
+        self.fbl1n_from_var = tk.StringVar(value="4000000000")
+        tk.Entry(
+            right_frame,
+            textvariable=self.fbl1n_from_var,
+            width=13,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.primary_color,
+        ).grid(row=1, column=1, padx=(8, 4), pady=4)
+
+        tk.Label(right_frame, text="—", font=("Segoe UI", 9),
+                 bg=self.bg_color, fg=self.secondary_color).grid(row=1, column=2)
+
+        self.fbl1n_to_var = tk.StringVar(value="7399999999")
+        tk.Entry(
+            right_frame,
+            textvariable=self.fbl1n_to_var,
+            width=13,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.primary_color,
+        ).grid(row=1, column=3, padx=(4, 0), pady=4)
+
+        # FBL5N
+        tk.Label(
+            right_frame,
+            text="FBL5N (clientes):",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).grid(row=2, column=0, sticky="w", pady=4)
+
+        self.fbl5n_from_var = tk.StringVar(value="200000")
+        tk.Entry(
+            right_frame,
+            textvariable=self.fbl5n_from_var,
+            width=13,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.primary_color,
+        ).grid(row=2, column=1, padx=(8, 4), pady=4)
+
+        tk.Label(right_frame, text="—", font=("Segoe UI", 9),
+                 bg=self.bg_color, fg=self.secondary_color).grid(row=2, column=2)
+
+        self.fbl5n_to_var = tk.StringVar(value="299999")
+        tk.Entry(
+            right_frame,
+            textvariable=self.fbl5n_to_var,
+            width=13,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.primary_color,
+        ).grid(row=2, column=3, padx=(4, 0), pady=4)
 
     def _build_paths_section(self, parent):
         paths_frame = tk.LabelFrame(
@@ -364,26 +473,26 @@ class IntercompaniasGUI:
         )
         paths_frame.pack(fill="x", pady=(0, 20))
 
+        # Entrada proveedores
         tk.Label(
             paths_frame,
-            text="Carpeta de entrada:",
+            text="Entrada proveedores:",
             font=("Segoe UI", 9),
             bg=self.bg_color,
             fg=self.secondary_color,
         ).grid(row=0, column=0, sticky="w", pady=8)
 
         self.input_path_var = tk.StringVar(value=self.input_path)
-        input_entry = tk.Entry(
+        tk.Entry(
             paths_frame,
             textvariable=self.input_path_var,
             width=60,
             font=("Segoe UI", 9),
             bg=self.light_gray,
             relief=tk.FLAT,
-        )
-        input_entry.grid(row=0, column=1, padx=10, pady=8, sticky="we")
+        ).grid(row=0, column=1, padx=10, pady=8, sticky="we")
 
-        input_btn = tk.Button(
+        tk.Button(
             paths_frame,
             text="Buscar",
             command=self.select_input_path,
@@ -393,29 +502,59 @@ class IntercompaniasGUI:
             relief=tk.FLAT,
             padx=15,
             pady=4,
-        )
-        input_btn.grid(row=0, column=2, pady=8)
+        ).grid(row=0, column=2, pady=8)
 
+        # Entrada clientes (nueva)
+        tk.Label(
+            paths_frame,
+            text="Entrada clientes:",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).grid(row=1, column=0, sticky="w", pady=8)
+
+        self.clientes_path_var = tk.StringVar(value=self.clientes_path)
+        tk.Entry(
+            paths_frame,
+            textvariable=self.clientes_path_var,
+            width=60,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            relief=tk.FLAT,
+        ).grid(row=1, column=1, padx=10, pady=8, sticky="we")
+
+        tk.Button(
+            paths_frame,
+            text="Buscar",
+            command=self.select_clientes_path,
+            font=("Segoe UI", 9),
+            bg=self.primary_color,
+            fg="white",
+            relief=tk.FLAT,
+            padx=15,
+            pady=4,
+        ).grid(row=1, column=2, pady=8)
+
+        # Carpeta de salida
         tk.Label(
             paths_frame,
             text="Carpeta de salida:",
             font=("Segoe UI", 9),
             bg=self.bg_color,
             fg=self.secondary_color,
-        ).grid(row=1, column=0, sticky="w", pady=8)
+        ).grid(row=2, column=0, sticky="w", pady=8)
 
         self.output_path_var = tk.StringVar(value=self.output_path)
-        output_entry = tk.Entry(
+        tk.Entry(
             paths_frame,
             textvariable=self.output_path_var,
             width=60,
             font=("Segoe UI", 9),
             bg=self.light_gray,
             relief=tk.FLAT,
-        )
-        output_entry.grid(row=1, column=1, padx=10, pady=8, sticky="we")
+        ).grid(row=2, column=1, padx=10, pady=8, sticky="we")
 
-        output_btn = tk.Button(
+        tk.Button(
             paths_frame,
             text="Buscar",
             command=self.select_output_path,
@@ -425,8 +564,7 @@ class IntercompaniasGUI:
             relief=tk.FLAT,
             padx=15,
             pady=4,
-        )
-        output_btn.grid(row=1, column=2, pady=8)
+        ).grid(row=2, column=2, pady=8)
 
         paths_frame.columnconfigure(1, weight=1)
 
@@ -843,10 +981,16 @@ class IntercompaniasGUI:
 
     # ===== Helpers =====
     def select_input_path(self):
-        path = filedialog.askdirectory(title="Selecciona carpeta de entrada")
+        path = filedialog.askdirectory(title="Selecciona carpeta de entrada (proveedores)")
         if path:
             self.input_path_var.set(path)
             self.input_path = path
+
+    def select_clientes_path(self):
+        path = filedialog.askdirectory(title="Selecciona carpeta de entrada (clientes)")
+        if path:
+            self.clientes_path_var.set(path)
+            self.clientes_path = path
 
     def select_output_path(self):
         path = filedialog.askdirectory(title="Selecciona carpeta de salida")
@@ -900,6 +1044,7 @@ class IntercompaniasGUI:
 
     def get_config(self):
         self.input_path = self.input_path_var.get().strip()
+        self.clientes_path = self.clientes_path_var.get().strip()
         self.output_path = self.output_path_var.get().strip()
 
         return {
@@ -907,7 +1052,12 @@ class IntercompaniasGUI:
             "date_from": self.date_from_var.get(),
             "date_to": self.date_to_var.get(),
             "input_path": self.input_path,
+            "clientes_path": self.clientes_path,
             "output_path": self.output_path,
+            "fbl1n_range_from": self.fbl1n_from_var.get().strip(),
+            "fbl1n_range_to":   self.fbl1n_to_var.get().strip(),
+            "fbl5n_range_from": self.fbl5n_from_var.get().strip(),
+            "fbl5n_range_to":   self.fbl5n_to_var.get().strip(),
             "cuentas_proveedores_por_sociedad": self.cuentas_proveedores_por_sociedad,
             "cuentas_clientes_por_sociedad": self.cuentas_clientes_por_sociedad,
         }
