@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-
+import config as config
 
 # Helper simple
 def clean_all_str(df):
@@ -49,6 +49,7 @@ def ejecutar_consolidacion_por_sociedad(ruta_input, ruta_output, sociedad,sin_pr
     # =========================
     # === Rutas y archivos ===
     # =========================
+
 
     archivo_fbl1 = os.path.join(ruta_input, 'Proveedores', f'FBL1_Proveedores_{sociedad}.xlsx')
     archivo_zfiq02 = os.path.join(ruta_input, 'Proveedores', f'ZFIQ02_Proveedores_{sociedad}.xlsx')
@@ -166,13 +167,15 @@ def ejecutar_consolidacion_por_sociedad(ruta_input, ruta_output, sociedad,sin_pr
 
         # Filtrar cuentas según sociedad
         #NOTA: Cambiar en un futuro las cuentas por sociedad en caso de agregar/quitar algunas cuentas
-        CUENTAS_PROVEEDORES_POR_SOCIEDAD = {
-        "MX01": ["6600022", "7201000", "7204000"],
-        "MX05": ["7201000"],
-        "MX22": ["6600021", "2050000", "6600022", "6700040", "6700043", "6700048", "6900010"],
-        "MX30": ["6600022", "7204000", "6900010"],
-        "MX73": ["6600022"],
-        }
+        # CUENTAS_PROVEEDORES_POR_SOCIEDAD = {
+        # "MX01": ["6600022", "7201000", "7204000"],
+        # "MX05": ["7201000"],
+        # "MX22": ["6600021", "2050000", "6600022", "6700040", "6700043", "6700048", "6900010"],
+        # "MX30": ["6600022", "7204000", "6900010"],
+        # "MX73": ["6600022"],
+        # }
+        CUENTAS_PROVEEDORES_POR_SOCIEDAD = config["cuentas_proveedores_por_sociedad"]
+        print(CUENTAS_PROVEEDORES_POR_SOCIEDAD)
         cuentas_filtro = CUENTAS_PROVEEDORES_POR_SOCIEDAD.get(sociedad.upper(), ["6600022"])
         if "Cuenta" in fbl3n.columns:
             fbl3n = fbl3n[fbl3n["Cuenta"].isin(cuentas_filtro)]
@@ -353,16 +356,18 @@ def ejecutar_consolidacion_por_sociedad(ruta_input, ruta_output, sociedad,sin_pr
             fbl3n_cli[col] = ""
         
         # Filtrar cuentas de clientes según sociedad
-        CUENTAS_CLIENTES_POR_SOCIEDAD = {
-            "MX01": ["7000005", "7000020", "7201000"],
-            "MX05": ["7201000"],
-            "MX22": ["4300010", "7000005", "7001002", "7010005", "7201000"],
-            "MX30": ["7001000", "7001002", "7001005", "7011000", "7500000"],
-            "MX31": ["7201000"],
-            "MX32": ["7201000"],
-            "MX73": ["7000005", "7001002", "7201000"],
-            "MX80": ["7201000"],
-        }
+        # CUENTAS_CLIENTES_POR_SOCIEDAD = {
+        #     "MX01": ["7000005", "7000020", "7201000"],
+        #     "MX05": ["7201000"],
+        #     "MX22": ["4300010", "7000005", "7001002", "7010005", "7201000"],
+        #     "MX30": ["7001000", "7001002", "7001005", "7011000", "7500000"],
+        #     "MX31": ["7201000"],
+        #     "MX32": ["7201000"],
+        #     "MX73": ["7000005", "7001002", "7201000"],
+        #     "MX80": ["7201000"],
+        # }
+        CUENTAS_CLIENTES_POR_SOCIEDAD = config["cuentas_clientes_por_sociedad"]
+        print(CUENTAS_CLIENTES_POR_SOCIEDAD)
         cuentas_clientes_filtrar = CUENTAS_CLIENTES_POR_SOCIEDAD.get(sociedad.upper(), ["7201000"])
         if "Cuenta" in fbl3n_cli.columns:
             fbl3n_cli = fbl3n_cli[fbl3n_cli["Cuenta"].isin(cuentas_clientes_filtrar)]
