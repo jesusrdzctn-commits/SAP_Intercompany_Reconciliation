@@ -10,3 +10,4 @@ src/Output/
 src/config/
 src/build/
 src/Intercompanias.spec
+src/dist/
