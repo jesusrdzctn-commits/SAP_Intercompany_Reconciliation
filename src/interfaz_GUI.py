@@ -2,16 +2,17 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
 import os
+import ast
 
 
 class IntercompaniasGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Extracción de Documentos - Intercompañías")
-        self.root.geometry("650x730")
+        self.root.geometry("900x780")
         self.root.resizable(False, False)
-        
-        # Modern color scheme
+
+        # Color scheme
         self.bg_color = "#FFFFFF"
         self.primary_color = "#000000"
         self.secondary_color = "#333333"
@@ -19,201 +20,294 @@ class IntercompaniasGUI:
         self.light_gray = "#F5F5F5"
         self.border_color = "#E0E0E0"
         self.success_color = "#28A745"
-        
-        # Configure root background
+
         self.root.configure(bg=self.bg_color)
-        
+
         # Variables
         self.sociedades_list = []
         self.on_download = None
         self.on_consolidation = None
-        
-        # Get dynamic output path
-        user_profile = os.environ.get('USERPROFILE') or os.path.expanduser('~')
-        base_path = os.path.join(user_profile, 'Documents', 'Intercompañias', 'RDA_Intercompanias', 'src')
-        self.input_path = os.path.join(base_path, 'Input', 'Proveedores')
-        self.clientes_path = os.path.join(base_path, 'Input', 'Clientes')
-        self.output_path = os.path.join(base_path, 'Output')
 
-        # Variables by default (placeholders waiting for the user to input them)
-        self.date_from_var = tk.StringVar(value="01.01.2025")
-        self.date_to_var   = tk.StringVar(value="31.12.2025")
-        self.fbl1n_range_from_var = tk.StringVar(value="4000000000")
-        self.fbl1n_range_to_var   = tk.StringVar(value="7399999999")
-        self.fbl5n_range_from_var = tk.StringVar(value="200000")
-        self.fbl5n_range_to_var   = tk.StringVar(value="299999")
-        
+        # Diccionarios configurables
+        self.cuentas_proveedores_por_sociedad = {
+            "MX01": ["6600022", "7201000", "7204000"],
+            "MX05": ["7201000"],
+            "MX22": ["6600021", "2050000", "6600022", "6700040", "6700043", "6700048", "6900010"],
+            "MX30": ["6600022", "7204000", "6900010"],
+            "MX73": ["6600022"],
+        }
+
+        self.cuentas_clientes_por_sociedad = {
+            "MX01": ["7000005", "7000020", "7201000"],
+            "MX05": ["7201000"],
+            "MX22": ["4300010", "7000005", "7001002", "7010005", "7201000"],
+            "MX30": ["7001000", "7001002", "7001005", "7011000", "7500000"],
+            "MX31": ["7201000"],
+            "MX32": ["7201000"],
+            "MX73": ["7000005", "7001002", "7201000"],
+            "MX80": ["7201000"],
+        }
+
+        # Dynamic paths
+        user_profile = os.environ.get("USERPROFILE") or os.path.expanduser("~")
+        base_path = os.path.join(
+            user_profile, "Documents", "Intercompañias", "RDA_Intercompanias", "src"
+        )
+        self.input_path = os.path.join(base_path, "Input", "Proveedores")
+        self.clientes_path = os.path.join(base_path, "Input", "Clientes")
+        self.output_path = os.path.join(base_path, "Output")
+        self.config_path = os.path.join(base_path, "config")
+
+        self.proveedores_txt_path = os.path.join(
+            self.config_path, "cuentas_proveedores_por_sociedad.txt"
+        )
+        self.clientes_txt_path = os.path.join(
+            self.config_path, "cuentas_clientes_por_sociedad.txt"
+        )
+
+        self._create_project_folders()
+
         self._build_ui()
-    
+        self._load_all_configs()
+        self._refresh_proveedores_tree()
+        self._refresh_clientes_tree()
+
+    def _create_project_folders(self):
+        """Crea toda la estructura de carpetas al iniciar la app"""
+        folders = [
+            self.input_path,      # Input/Proveedores
+            self.clientes_path,   # Input/Clientes
+            self.output_path,     # Output
+            self.config_path,     # config
+        ]
+        for folder in folders:
+            os.makedirs(folder, exist_ok=True)
+
     def _build_ui(self):
-        """Build the complete user interface"""
-        # Create main frame with modern styling
-        main_frame = tk.Frame(self.root, bg=self.bg_color, padx=30, pady=20)
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Title with modern font
+        main_frame = tk.Frame(self.root, bg=self.bg_color, padx=20, pady=20)
+        main_frame.pack(fill="both", expand=True)
+
         title_label = tk.Label(
-            main_frame, 
-            text="Sistema de Extracción de Documentos", 
-            font=('Segoe UI', 18, 'bold'),
+            main_frame,
+            text="Sistema de Extracción de Documentos",
+            font=("Segoe UI", 18, "bold"),
             bg=self.bg_color,
-            fg=self.primary_color
+            fg=self.primary_color,
         )
-        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 25))
-        
-        # ===== Date Section =====
-        self._build_date_section(main_frame)
-        
-        # ===== Sociedades Section =====
-        self._build_sociedades_section(main_frame)
-        
-        # ===== Action Buttons =====
-        self._build_action_buttons(main_frame)
-        
-        # ===== Status and Output Info =====
+        title_label.pack(pady=(0, 20))
+
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure("TNotebook", background=self.bg_color, borderwidth=0)
+        style.configure("TNotebook.Tab", padding=[15, 8], font=("Segoe UI", 10, "bold"))
+        style.configure("Treeview", font=("Segoe UI", 9), rowheight=24)
+        style.configure("Treeview.Heading", font=("Segoe UI", 9, "bold"))
+
+        self.notebook = ttk.Notebook(main_frame)
+        self.notebook.pack(fill="both", expand=True)
+
+        self.process_tab = tk.Frame(self.notebook, bg=self.bg_color)
+        self.config_tab = tk.Frame(self.notebook, bg=self.bg_color)
+
+        self.notebook.add(self.process_tab, text="Proceso")
+        self.notebook.add(self.config_tab, text="Configuración")
+
+        self._build_process_tab()
+        self._build_config_tab()
         self._build_status_section(main_frame)
-    
+
+    def _build_process_tab(self):
+        process_container = tk.Frame(self.process_tab, bg=self.bg_color, padx=15, pady=15)
+        process_container.pack(fill="both", expand=True)
+
+        subtitle = tk.Label(
+            process_container,
+            text="Inicio de proceso de descarga y conciliación",
+            font=("Segoe UI", 12, "bold"),
+            bg=self.bg_color,
+            fg=self.primary_color,
+        )
+        subtitle.pack(anchor="w", pady=(0, 15))
+
+        self._build_date_section(process_container)
+        self._build_action_buttons(process_container)
+
+    def _build_config_tab(self):
+        container = tk.Frame(self.config_tab, bg=self.bg_color)
+        container.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(container, bg=self.bg_color, highlightthickness=0, bd=0)
+        scrollbar = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        config_container = tk.Frame(canvas, bg=self.bg_color, padx=15, pady=15)
+        self.config_canvas_window = canvas.create_window((0, 0), window=config_container, anchor="nw")
+
+        config_container.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.bind(
+            "<Configure>",
+            lambda e: canvas.itemconfig(self.config_canvas_window, width=e.width)
+        )
+
+        canvas.bind_all(
+            "<MouseWheel>",
+            lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        )
+
+        subtitle = tk.Label(
+            config_container,
+            text="Configuración general",
+            font=("Segoe UI", 12, "bold"),
+            bg=self.bg_color,
+            fg=self.primary_color,
+        )
+        subtitle.pack(anchor="w", pady=(0, 15))
+
+        self._build_sociedades_section(config_container)
+        self._build_paths_section(config_container)
+        self._build_proveedores_section(config_container)
+        self._build_clientes_section(config_container)
+
     def _build_date_section(self, parent):
-        """Build the date input section alongside account range inputs"""
-        outer_frame = tk.Frame(parent, bg=self.bg_color)
-        outer_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 18))
-
-        # ── Columna izquierda: Intervalo de tiempo ──────────────────────
         date_frame = tk.LabelFrame(
-            outer_frame,
+            parent,
             text="  Intervalo de Tiempo  ",
-            font=('Segoe UI', 10, 'bold'),
-            bg=self.bg_color, fg=self.primary_color,
-            bd=1, relief=tk.SOLID, padx=15, pady=15
-        )
-        date_frame.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.W, tk.E), padx=(0, 10))
-
-        tk.Label(date_frame, text="Fecha Desde:", font=('Segoe UI', 9),
-                bg=self.bg_color, fg=self.secondary_color).grid(row=0, column=0, sticky=tk.W, pady=8)
-        self.date_from_entry = tk.Entry(
-            date_frame, textvariable=self.date_from_var, width=13,
-            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
-            relief=tk.FLAT, bd=1, highlightthickness=1,
-            highlightbackground=self.border_color, highlightcolor=self.primary_color
-        )
-        self.date_from_entry.grid(row=0, column=1, padx=8, pady=8, sticky=tk.W)
-        tk.Label(date_frame, text="(DD.MM.YYYY)", font=('Segoe UI', 8),
-                bg=self.bg_color, fg="#999999").grid(row=0, column=2, sticky=tk.W)
-
-        tk.Label(date_frame, text="Fecha Hasta:", font=('Segoe UI', 9),
-                bg=self.bg_color, fg=self.secondary_color).grid(row=1, column=0, sticky=tk.W, pady=8)
-        self.date_to_entry = tk.Entry(
-            date_frame, textvariable=self.date_to_var, width=13,
-            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
-            relief=tk.FLAT, bd=1, highlightthickness=1,
-            highlightbackground=self.border_color, highlightcolor=self.primary_color
-        )
-        self.date_to_entry.grid(row=1, column=1, padx=8, pady=8, sticky=tk.W)
-        tk.Label(date_frame, text="(DD.MM.YYYY)", font=('Segoe UI', 8),
-                bg=self.bg_color, fg="#999999").grid(row=1, column=2, sticky=tk.W)
-
-        # ── Columna derecha: Rangos de cuentas ─────────────────────────
-        range_frame = tk.LabelFrame(
-            outer_frame,
-            text="  Rangos de Cuentas  ",
-            font=('Segoe UI', 10, 'bold'),
-            bg=self.bg_color, fg=self.primary_color,
-            bd=1, relief=tk.SOLID, padx=15, pady=15
-        )
-        range_frame.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
-
-        # FBL1N
-        tk.Label(range_frame, text="FBL1N  Desde:", font=('Segoe UI', 9),
-                bg=self.bg_color, fg=self.secondary_color).grid(row=0, column=0, sticky=tk.W, pady=4)
-        tk.Entry(
-            range_frame, textvariable=self.fbl1n_range_from_var, width=14,
-            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
-            relief=tk.FLAT, bd=1, highlightthickness=1,
-            highlightbackground=self.border_color, highlightcolor=self.primary_color
-        ).grid(row=0, column=1, padx=8, pady=4, sticky=tk.W)
-
-        tk.Label(range_frame, text="FBL1N  Hasta:", font=('Segoe UI', 9),
-                bg=self.bg_color, fg=self.secondary_color).grid(row=1, column=0, sticky=tk.W, pady=4)
-        tk.Entry(
-            range_frame, textvariable=self.fbl1n_range_to_var, width=14,
-            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
-            relief=tk.FLAT, bd=1, highlightthickness=1,
-            highlightbackground=self.border_color, highlightcolor=self.primary_color
-        ).grid(row=1, column=1, padx=8, pady=4, sticky=tk.W)
-
-        # Separador visual
-        tk.Frame(range_frame, bg=self.border_color, height=1).grid(
-            row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=6)
-
-        # FBL5N
-        tk.Label(range_frame, text="FBL5N  Desde:", font=('Segoe UI', 9),
-                bg=self.bg_color, fg=self.secondary_color).grid(row=3, column=0, sticky=tk.W, pady=4)
-        tk.Entry(
-            range_frame, textvariable=self.fbl5n_range_from_var, width=14,
-            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
-            relief=tk.FLAT, bd=1, highlightthickness=1,
-            highlightbackground=self.border_color, highlightcolor=self.primary_color
-        ).grid(row=3, column=1, padx=8, pady=4, sticky=tk.W)
-
-        tk.Label(range_frame, text="FBL5N  Hasta:", font=('Segoe UI', 9),
-                bg=self.bg_color, fg=self.secondary_color).grid(row=4, column=0, sticky=tk.W, pady=4)
-        tk.Entry(
-            range_frame, textvariable=self.fbl5n_range_to_var, width=14,
-            font=('Segoe UI', 10), bg=self.light_gray, fg=self.primary_color,
-            relief=tk.FLAT, bd=1, highlightthickness=1,
-            highlightbackground=self.border_color, highlightcolor=self.primary_color
-        ).grid(row=4, column=1, padx=8, pady=4, sticky=tk.W)
-    
-    def _build_sociedades_section(self, parent):
-        """Build the sociedades management section"""
-        sociedades_frame = tk.LabelFrame(
-            parent, 
-            text="  Sociedades  ", 
-            font=('Segoe UI', 10, 'bold'),
+            font=("Segoe UI", 10, "bold"),
             bg=self.bg_color,
             fg=self.primary_color,
             bd=1,
             relief=tk.SOLID,
             padx=15,
-            pady=15
+            pady=15,
         )
-        sociedades_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 18))
-        
-        # Input for new sociedad
-        input_frame = tk.Frame(sociedades_frame, bg=self.bg_color)
-        input_frame.grid(row=0, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
-        
+        date_frame.pack(fill="x", pady=(0, 20))
+
         tk.Label(
-            input_frame, 
-            text="Agregar Sociedad:", 
-            font=('Segoe UI', 9),
+            date_frame,
+            text="Fecha Desde:",
+            font=("Segoe UI", 9),
             bg=self.bg_color,
-            fg=self.secondary_color
-        ).pack(side=tk.LEFT, padx=(0, 10))
-        
-        self.sociedad_var = tk.StringVar()
-        self.sociedad_entry = tk.Entry(
-            input_frame, 
-            textvariable=self.sociedad_var, 
+            fg=self.secondary_color,
+        ).grid(row=0, column=0, sticky=tk.W, pady=8)
+
+        self.date_from_var = tk.StringVar(value="01.01.2025")
+        self.date_from_entry = tk.Entry(
+            date_frame,
+            textvariable=self.date_from_var,
             width=15,
-            font=('Segoe UI', 10),
+            font=("Segoe UI", 10),
             bg=self.light_gray,
             fg=self.primary_color,
             relief=tk.FLAT,
             bd=1,
             highlightthickness=1,
             highlightbackground=self.border_color,
-            highlightcolor=self.primary_color
+            highlightcolor=self.primary_color,
+        )
+        self.date_from_entry.grid(row=0, column=1, padx=10, pady=8, sticky=tk.W)
+
+        tk.Label(
+            date_frame,
+            text="(DD.MM.YYYY)",
+            font=("Segoe UI", 8),
+            bg=self.bg_color,
+            fg="#999999",
+        ).grid(row=0, column=2, sticky=tk.W)
+
+        tk.Label(
+            date_frame,
+            text="Fecha Hasta:",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).grid(row=1, column=0, sticky=tk.W, pady=8)
+
+        self.date_to_var = tk.StringVar(value="31.12.2025")
+        self.date_to_entry = tk.Entry(
+            date_frame,
+            textvariable=self.date_to_var,
+            width=15,
+            font=("Segoe UI", 10),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.primary_color,
+        )
+        self.date_to_entry.grid(row=1, column=1, padx=10, pady=8, sticky=tk.W)
+
+        tk.Label(
+            date_frame,
+            text="(DD.MM.YYYY)",
+            font=("Segoe UI", 8),
+            bg=self.bg_color,
+            fg="#999999",
+        ).grid(row=1, column=2, sticky=tk.W)
+
+    def _build_sociedades_section(self, parent):
+        sociedades_frame = tk.LabelFrame(
+            parent,
+            text="  Sociedades  ",
+            font=("Segoe UI", 10, "bold"),
+            bg=self.bg_color,
+            fg=self.primary_color,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+        )
+        sociedades_frame.pack(fill="x", pady=(0, 20))
+
+        # Contenedor horizontal: lista de sociedades (izquierda) | rangos (derecha)
+        content_frame = tk.Frame(sociedades_frame, bg=self.bg_color)
+        content_frame.pack(fill="x")
+
+        # ── Columna izquierda: lista de sociedades ──────────────────────────
+        left_frame = tk.Frame(content_frame, bg=self.bg_color)
+        left_frame.pack(side=tk.LEFT, fill="both", expand=True)
+
+        input_frame = tk.Frame(left_frame, bg=self.bg_color)
+        input_frame.pack(fill="x", pady=(0, 10))
+
+        tk.Label(
+            input_frame,
+            text="Agregar Sociedad:",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).pack(side=tk.LEFT, padx=(0, 10))
+
+        self.sociedad_var = tk.StringVar()
+        self.sociedad_entry = tk.Entry(
+            input_frame,
+            textvariable=self.sociedad_var,
+            width=15,
+            font=("Segoe UI", 10),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.primary_color,
         )
         self.sociedad_entry.pack(side=tk.LEFT, padx=(0, 10))
-        self.sociedad_entry.bind('<Return>', lambda e: self.add_sociedad())
-        
-        # Add button with modern style
+        self.sociedad_entry.bind("<Return>", lambda e: self.add_sociedad())
+
         add_btn = tk.Button(
-            input_frame, 
+            input_frame,
             text="Agregar",
             command=self.add_sociedad,
-            font=('Segoe UI', 9),
+            font=("Segoe UI", 9),
             bg=self.primary_color,
             fg=self.bg_color,
             relief=tk.FLAT,
@@ -222,30 +316,29 @@ class IntercompaniasGUI:
             pady=5,
             cursor="hand2",
             activebackground=self.secondary_color,
-            activeforeground=self.bg_color
+            activeforeground=self.bg_color,
         )
         add_btn.pack(side=tk.LEFT)
-        
-        # Listbox to show sociedades
+
         tk.Label(
-            sociedades_frame, 
-            text="Sociedades Seleccionadas:", 
-            font=('Segoe UI', 9),
+            left_frame,
+            text="Sociedades Seleccionadas:",
+            font=("Segoe UI", 9),
             bg=self.bg_color,
-            fg=self.secondary_color
-        ).grid(row=1, column=0, sticky=tk.W, pady=(10, 5))
-        
-        listbox_frame = tk.Frame(sociedades_frame, bg=self.bg_color)
-        listbox_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
-        
+            fg=self.secondary_color,
+        ).pack(anchor="w", pady=(10, 5))
+
+        listbox_frame = tk.Frame(left_frame, bg=self.bg_color)
+        listbox_frame.pack(fill="x", pady=5)
+
         scrollbar = tk.Scrollbar(listbox_frame, bg=self.light_gray)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
+
         self.sociedades_listbox = tk.Listbox(
-            listbox_frame, 
-            height=5, 
-            width=60,
-            font=('Segoe UI', 9),
+            listbox_frame,
+            height=5,
+            width=40,
+            font=("Segoe UI", 9),
             bg=self.light_gray,
             fg=self.primary_color,
             relief=tk.FLAT,
@@ -259,13 +352,12 @@ class IntercompaniasGUI:
         )
         self.sociedades_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.sociedades_listbox.yview)
-        
-        # Remove button
+
         remove_btn = tk.Button(
-            sociedades_frame, 
+            left_frame,
             text="Eliminar Seleccionada",
             command=self.remove_sociedad,
-            font=('Segoe UI', 9),
+            font=("Segoe UI", 9),
             bg=self.bg_color,
             fg=self.secondary_color,
             relief=tk.SOLID,
@@ -274,21 +366,400 @@ class IntercompaniasGUI:
             pady=5,
             cursor="hand2",
             activebackground=self.light_gray,
-            activeforeground=self.primary_color
+            activeforeground=self.primary_color,
         )
-        remove_btn.grid(row=3, column=0, columnspan=3, pady=(10, 0))
-    
+        remove_btn.pack(pady=(10, 0), anchor="w")
+
+        # ── Separador vertical ──────────────────────────────────────────────
+        sep = tk.Frame(content_frame, bg=self.border_color, width=1)
+        sep.pack(side=tk.LEFT, fill="y", padx=15)
+
+        # ── Columna derecha: rangos de cuentas ──────────────────────────────
+        right_frame = tk.Frame(content_frame, bg=self.bg_color)
+        right_frame.pack(side=tk.LEFT, fill="y", padx=(0, 5))
+
+        tk.Label(
+            right_frame,
+            text="Rangos de cuentas",
+            font=("Segoe UI", 9, "bold"),
+            bg=self.bg_color,
+            fg=self.primary_color,
+        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
+
+        # FBL1N
+        tk.Label(
+            right_frame,
+            text="FBL1N (proveedores):",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).grid(row=1, column=0, sticky="w", pady=4)
+
+        self.fbl1n_from_var = tk.StringVar(value="4000000000")
+        tk.Entry(
+            right_frame,
+            textvariable=self.fbl1n_from_var,
+            width=13,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.primary_color,
+        ).grid(row=1, column=1, padx=(8, 4), pady=4)
+
+        tk.Label(right_frame, text="—", font=("Segoe UI", 9),
+                 bg=self.bg_color, fg=self.secondary_color).grid(row=1, column=2)
+
+        self.fbl1n_to_var = tk.StringVar(value="7399999999")
+        tk.Entry(
+            right_frame,
+            textvariable=self.fbl1n_to_var,
+            width=13,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.primary_color,
+        ).grid(row=1, column=3, padx=(4, 0), pady=4)
+
+        # FBL5N
+        tk.Label(
+            right_frame,
+            text="FBL5N (clientes):",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).grid(row=2, column=0, sticky="w", pady=4)
+
+        self.fbl5n_from_var = tk.StringVar(value="200000")
+        tk.Entry(
+            right_frame,
+            textvariable=self.fbl5n_from_var,
+            width=13,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.primary_color,
+        ).grid(row=2, column=1, padx=(8, 4), pady=4)
+
+        tk.Label(right_frame, text="—", font=("Segoe UI", 9),
+                 bg=self.bg_color, fg=self.secondary_color).grid(row=2, column=2)
+
+        self.fbl5n_to_var = tk.StringVar(value="299999")
+        tk.Entry(
+            right_frame,
+            textvariable=self.fbl5n_to_var,
+            width=13,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.primary_color,
+        ).grid(row=2, column=3, padx=(4, 0), pady=4)
+
+    def _build_paths_section(self, parent):
+        paths_frame = tk.LabelFrame(
+            parent,
+            text="  Rutas de trabajo  ",
+            font=("Segoe UI", 10, "bold"),
+            bg=self.bg_color,
+            fg=self.primary_color,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+        )
+        paths_frame.pack(fill="x", pady=(0, 20))
+
+        # Entrada proveedores
+        tk.Label(
+            paths_frame,
+            text="Entrada proveedores:",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).grid(row=0, column=0, sticky="w", pady=8)
+
+        self.input_path_var = tk.StringVar(value=self.input_path)
+        tk.Entry(
+            paths_frame,
+            textvariable=self.input_path_var,
+            width=60,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            relief=tk.FLAT,
+        ).grid(row=0, column=1, padx=10, pady=8, sticky="we")
+
+        tk.Button(
+            paths_frame,
+            text="Buscar",
+            command=self.select_input_path,
+            font=("Segoe UI", 9),
+            bg=self.primary_color,
+            fg="white",
+            relief=tk.FLAT,
+            padx=15,
+            pady=4,
+        ).grid(row=0, column=2, pady=8)
+
+        # Entrada clientes (nueva)
+        tk.Label(
+            paths_frame,
+            text="Entrada clientes:",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).grid(row=1, column=0, sticky="w", pady=8)
+
+        self.clientes_path_var = tk.StringVar(value=self.clientes_path)
+        tk.Entry(
+            paths_frame,
+            textvariable=self.clientes_path_var,
+            width=60,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            relief=tk.FLAT,
+        ).grid(row=1, column=1, padx=10, pady=8, sticky="we")
+
+        tk.Button(
+            paths_frame,
+            text="Buscar",
+            command=self.select_clientes_path,
+            font=("Segoe UI", 9),
+            bg=self.primary_color,
+            fg="white",
+            relief=tk.FLAT,
+            padx=15,
+            pady=4,
+        ).grid(row=1, column=2, pady=8)
+
+        # Carpeta de salida
+        tk.Label(
+            paths_frame,
+            text="Carpeta de salida:",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).grid(row=2, column=0, sticky="w", pady=8)
+
+        self.output_path_var = tk.StringVar(value=self.output_path)
+        tk.Entry(
+            paths_frame,
+            textvariable=self.output_path_var,
+            width=60,
+            font=("Segoe UI", 9),
+            bg=self.light_gray,
+            relief=tk.FLAT,
+        ).grid(row=2, column=1, padx=10, pady=8, sticky="we")
+
+        tk.Button(
+            paths_frame,
+            text="Buscar",
+            command=self.select_output_path,
+            font=("Segoe UI", 9),
+            bg=self.primary_color,
+            fg="white",
+            relief=tk.FLAT,
+            padx=15,
+            pady=4,
+        ).grid(row=2, column=2, pady=8)
+
+        paths_frame.columnconfigure(1, weight=1)
+
+    def _build_proveedores_section(self, parent):
+        frame = tk.LabelFrame(
+            parent,
+            text="  Cuentas proveedores por sociedad  ",
+            font=("Segoe UI", 10, "bold"),
+            bg=self.bg_color,
+            fg=self.primary_color,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+        )
+        frame.pack(fill="both", expand=True, pady=(0, 20))
+
+        form_frame = tk.Frame(frame, bg=self.bg_color)
+        form_frame.pack(fill="x", pady=(0, 15))
+
+        tk.Label(form_frame, text="Sociedad:", font=("Segoe UI", 9),
+                 bg=self.bg_color, fg=self.secondary_color).grid(row=0, column=0, sticky="w", pady=6)
+
+        self.prov_sociedad_var = tk.StringVar()
+        tk.Entry(
+            form_frame, textvariable=self.prov_sociedad_var, width=15,
+            font=("Segoe UI", 10), bg=self.light_gray, relief=tk.FLAT
+        ).grid(row=0, column=1, padx=10, pady=6, sticky="w")
+
+        tk.Label(form_frame, text="Cuentas (separadas por coma):", font=("Segoe UI", 9),
+                 bg=self.bg_color, fg=self.secondary_color).grid(row=1, column=0, sticky="w", pady=6)
+
+        self.prov_cuentas_var = tk.StringVar()
+        tk.Entry(
+            form_frame, textvariable=self.prov_cuentas_var, width=70,
+            font=("Segoe UI", 10), bg=self.light_gray, relief=tk.FLAT
+        ).grid(row=1, column=1, padx=10, pady=6, sticky="we")
+
+        form_frame.columnconfigure(1, weight=1)
+
+        btns = tk.Frame(frame, bg=self.bg_color)
+        btns.pack(fill="x", pady=(0, 10))
+
+        tk.Button(
+            btns, text="Agregar / Actualizar", command=self.add_or_update_proveedor,
+            font=("Segoe UI", 9), bg=self.primary_color, fg=self.bg_color,
+            relief=tk.FLAT, bd=0, padx=20, pady=5, cursor="hand2"
+        ).pack(side=tk.LEFT, padx=(0, 10))
+
+        tk.Button(
+            btns, text="Eliminar Seleccionada", command=self.remove_proveedor,
+            font=("Segoe UI", 9), bg=self.bg_color, fg=self.secondary_color,
+            relief=tk.SOLID, bd=1, padx=20, pady=5, cursor="hand2"
+        ).pack(side=tk.LEFT, padx=(0, 10))
+
+        tk.Button(
+            btns, text="Guardar TXT Proveedores", command=self.save_proveedores_to_txt,
+            font=("Segoe UI", 9, "bold"), bg=self.success_color, fg=self.bg_color,
+            relief=tk.FLAT, bd=0, padx=20, pady=5, cursor="hand2"
+        ).pack(side=tk.LEFT)
+
+        tree_frame = tk.Frame(frame, bg=self.bg_color)
+        tree_frame.pack(fill="both", expand=True)
+
+        sy = tk.Scrollbar(tree_frame, orient="vertical")
+        sy.pack(side="right", fill="y")
+
+        sx = tk.Scrollbar(tree_frame, orient="horizontal")
+        sx.pack(side="bottom", fill="x")
+
+        self.proveedores_tree = ttk.Treeview(
+            tree_frame,
+            columns=("sociedad", "cuentas"),
+            show="headings",
+            yscrollcommand=sy.set,
+            xscrollcommand=sx.set,
+            height=7
+        )
+        self.proveedores_tree.pack(fill="both", expand=True)
+
+        sy.config(command=self.proveedores_tree.yview)
+        sx.config(command=self.proveedores_tree.xview)
+
+        self.proveedores_tree.heading("sociedad", text="Sociedad")
+        self.proveedores_tree.heading("cuentas", text="Cuentas")
+        self.proveedores_tree.column("sociedad", width=120, anchor="center")
+        self.proveedores_tree.column("cuentas", width=600, anchor="w")
+        self.proveedores_tree.bind("<<TreeviewSelect>>", self.on_select_proveedor)
+
+    def _build_clientes_section(self, parent):
+        frame = tk.LabelFrame(
+            parent,
+            text="  Cuentas clientes por sociedad  ",
+            font=("Segoe UI", 10, "bold"),
+            bg=self.bg_color,
+            fg=self.primary_color,
+            bd=1,
+            relief=tk.SOLID,
+            padx=15,
+            pady=15,
+        )
+        frame.pack(fill="both", expand=True, pady=(0, 20))
+
+        form_frame = tk.Frame(frame, bg=self.bg_color)
+        form_frame.pack(fill="x", pady=(0, 15))
+
+        tk.Label(form_frame, text="Sociedad:", font=("Segoe UI", 9),
+                 bg=self.bg_color, fg=self.secondary_color).grid(row=0, column=0, sticky="w", pady=6)
+
+        self.cli_sociedad_var = tk.StringVar()
+        tk.Entry(
+            form_frame, textvariable=self.cli_sociedad_var, width=15,
+            font=("Segoe UI", 10), bg=self.light_gray, relief=tk.FLAT
+        ).grid(row=0, column=1, padx=10, pady=6, sticky="w")
+
+        tk.Label(form_frame, text="Cuentas (separadas por coma):", font=("Segoe UI", 9),
+                 bg=self.bg_color, fg=self.secondary_color).grid(row=1, column=0, sticky="w", pady=6)
+
+        self.cli_cuentas_var = tk.StringVar()
+        tk.Entry(
+            form_frame, textvariable=self.cli_cuentas_var, width=70,
+            font=("Segoe UI", 10), bg=self.light_gray, relief=tk.FLAT
+        ).grid(row=1, column=1, padx=10, pady=6, sticky="we")
+
+        form_frame.columnconfigure(1, weight=1)
+
+        btns = tk.Frame(frame, bg=self.bg_color)
+        btns.pack(fill="x", pady=(0, 10))
+
+        tk.Button(
+            btns, text="Agregar / Actualizar", command=self.add_or_update_cliente,
+            font=("Segoe UI", 9), bg=self.primary_color, fg=self.bg_color,
+            relief=tk.FLAT, bd=0, padx=20, pady=5, cursor="hand2"
+        ).pack(side=tk.LEFT, padx=(0, 10))
+
+        tk.Button(
+            btns, text="Eliminar Seleccionada", command=self.remove_cliente,
+            font=("Segoe UI", 9), bg=self.bg_color, fg=self.secondary_color,
+            relief=tk.SOLID, bd=1, padx=20, pady=5, cursor="hand2"
+        ).pack(side=tk.LEFT, padx=(0, 10))
+
+        tk.Button(
+            btns, text="Guardar TXT Clientes", command=self.save_clientes_to_txt,
+            font=("Segoe UI", 9, "bold"), bg=self.success_color, fg=self.bg_color,
+            relief=tk.FLAT, bd=0, padx=20, pady=5, cursor="hand2"
+        ).pack(side=tk.LEFT)
+
+        tree_frame = tk.Frame(frame, bg=self.bg_color)
+        tree_frame.pack(fill="both", expand=True)
+
+        sy = tk.Scrollbar(tree_frame, orient="vertical")
+        sy.pack(side="right", fill="y")
+
+        sx = tk.Scrollbar(tree_frame, orient="horizontal")
+        sx.pack(side="bottom", fill="x")
+
+        self.clientes_tree = ttk.Treeview(
+            tree_frame,
+            columns=("sociedad", "cuentas"),
+            show="headings",
+            yscrollcommand=sy.set,
+            xscrollcommand=sx.set,
+            height=7
+        )
+        self.clientes_tree.pack(fill="both", expand=True)
+
+        sy.config(command=self.clientes_tree.yview)
+        sx.config(command=self.clientes_tree.xview)
+
+        self.clientes_tree.heading("sociedad", text="Sociedad")
+        self.clientes_tree.heading("cuentas", text="Cuentas")
+        self.clientes_tree.column("sociedad", width=120, anchor="center")
+        self.clientes_tree.column("cuentas", width=600, anchor="w")
+        self.clientes_tree.bind("<<TreeviewSelect>>", self.on_select_cliente)
+
     def _build_action_buttons(self, parent):
-        """Build the main action buttons"""
         button_frame = tk.Frame(parent, bg=self.bg_color)
-        button_frame.grid(row=3, column=0, columnspan=3, pady=(20, 0))
-        
-        # Download button
+        button_frame.pack(pady=(10, 0))
+
         self.download_btn = tk.Button(
-            button_frame, 
+            button_frame,
             text="⚡ Descargar Documentos",
             command=self._handle_download,
-            font=('Segoe UI', 11, 'bold'),
+            font=("Segoe UI", 11, "bold"),
             bg=self.primary_color,
             fg=self.bg_color,
             relief=tk.RAISED,
@@ -297,16 +768,16 @@ class IntercompaniasGUI:
             pady=12,
             cursor="hand2",
             activebackground=self.secondary_color,
-            activeforeground=self.bg_color
+            activeforeground=self.bg_color,
+            width=25,
         )
         self.download_btn.pack(pady=(0, 10))
-        
-        # Consolidation button
+
         self.consolidate_btn = tk.Button(
-            button_frame, 
-            text="📊 Consolidación",
+            button_frame,
+            text="📊 Conciliación / Consolidación",
             command=self._handle_consolidation,
-            font=('Segoe UI', 11, 'bold'),
+            font=("Segoe UI", 11, "bold"),
             bg=self.success_color,
             fg=self.bg_color,
             relief=tk.RAISED,
@@ -315,133 +786,334 @@ class IntercompaniasGUI:
             pady=12,
             cursor="hand2",
             activebackground="#218838",
-            activeforeground=self.bg_color
+            activeforeground=self.bg_color,
+            width=25,
         )
         self.consolidate_btn.pack()
-    
+
     def _build_status_section(self, parent):
-        """Build status and information section"""
-        # Status label
+        footer_frame = tk.Frame(parent, bg=self.bg_color)
+        footer_frame.pack(fill="x", pady=(15, 0))
+
         self.status_var = tk.StringVar(value="✓ Listo para comenzar")
         status_label = tk.Label(
-            parent, 
+            footer_frame,
             textvariable=self.status_var,
-            font=('Segoe UI', 10),
+            font=("Segoe UI", 10),
             bg=self.bg_color,
-            fg="#666666"
+            fg="#666666",
         )
-        status_label.grid(row=4, column=0, columnspan=3, pady=(15, 0))
-        
-        # Output path labels
-        input_label = tk.Label(
-            parent,
-            text=f"📥 Carpeta de entrada: {self.input_path}",
-            font=('Segoe UI', 8),
-            bg=self.bg_color,
-            fg="#999999",
-            wraplength=550
-        )
-        input_label.grid(row=5, column=0, columnspan=3, pady=(8, 0))
-        
-        output_label = tk.Label(
-            parent,
-            text=f"📤 Carpeta de salida: {self.output_path}",
-            font=('Segoe UI', 8),
-            bg=self.bg_color,
-            fg="#999999",
-            wraplength=550
-        )
-        output_label.grid(row=6, column=0, columnspan=3, pady=(3, 0))
-    
+        status_label.pack()
+
+    # =========================
+    # PROVEEDORES
+    # =========================
+    def _refresh_proveedores_tree(self):
+        for item in self.proveedores_tree.get_children():
+            self.proveedores_tree.delete(item)
+
+        for sociedad in sorted(self.cuentas_proveedores_por_sociedad.keys()):
+            cuentas = self.cuentas_proveedores_por_sociedad[sociedad]
+            self.proveedores_tree.insert("", "end", values=(sociedad, ", ".join(cuentas)))
+
+    def add_or_update_proveedor(self):
+        sociedad = self.prov_sociedad_var.get().strip().upper()
+        cuentas_text = self.prov_cuentas_var.get().strip()
+
+        if not sociedad:
+            messagebox.showwarning("Advertencia", "Capture una sociedad para proveedores")
+            return
+        if not cuentas_text:
+            messagebox.showwarning("Advertencia", "Capture las cuentas de proveedores separadas por coma")
+            return
+
+        cuentas = [c.strip() for c in cuentas_text.split(",") if c.strip()]
+        self.cuentas_proveedores_por_sociedad[sociedad] = cuentas
+        self._refresh_proveedores_tree()
+
+        self.prov_sociedad_var.set("")
+        self.prov_cuentas_var.set("")
+        self.set_status(f"✓ Proveedores actualizados para {sociedad}")
+
+    def remove_proveedor(self):
+        selected = self.proveedores_tree.selection()
+        if not selected:
+            messagebox.showwarning("Advertencia", "Seleccione una sociedad de proveedores para eliminar")
+            return
+
+        item = selected[0]
+        sociedad = self.proveedores_tree.item(item, "values")[0]
+        self.cuentas_proveedores_por_sociedad.pop(sociedad, None)
+        self._refresh_proveedores_tree()
+        self.prov_sociedad_var.set("")
+        self.prov_cuentas_var.set("")
+        self.set_status(f"✓ Proveedores eliminados para {sociedad}")
+
+    def on_select_proveedor(self, event=None):
+        selected = self.proveedores_tree.selection()
+        if not selected:
+            return
+        item = selected[0]
+        sociedad, cuentas = self.proveedores_tree.item(item, "values")
+        self.prov_sociedad_var.set(sociedad)
+        self.prov_cuentas_var.set(cuentas)
+
+    def save_proveedores_to_txt(self):
+        try:
+            with open(self.proveedores_txt_path, "w", encoding="utf-8") as f:
+                f.write("CUENTAS_PROVEEDORES_POR_SOCIEDAD = {\n")
+                for sociedad in sorted(self.cuentas_proveedores_por_sociedad.keys()):
+                    cuentas = self.cuentas_proveedores_por_sociedad[sociedad]
+                    cuentas_str = ", ".join([f'"{c}"' for c in cuentas])
+                    f.write(f'    "{sociedad}": [{cuentas_str}],\n')
+                f.write("}\n")
+
+            self.set_status("✓ TXT de proveedores guardado correctamente")
+            messagebox.showinfo("Éxito", f"Archivo guardado correctamente:\n{self.proveedores_txt_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo guardar el TXT de proveedores:\n{e}")
+
+    def _load_proveedores_from_txt(self):
+        if not os.path.exists(self.proveedores_txt_path):
+            return
+        try:
+            with open(self.proveedores_txt_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+
+            if "=" in content:
+                _, dict_text = content.split("=", 1)
+                data = ast.literal_eval(dict_text.strip())
+                if isinstance(data, dict):
+                    self.cuentas_proveedores_por_sociedad = {
+                        str(k).upper(): [str(x).strip() for x in v]
+                        for k, v in data.items()
+                    }
+        except Exception as e:
+            messagebox.showwarning(
+                "Advertencia",
+                f"No se pudo cargar el TXT de proveedores.\nSe usarán valores por defecto.\n\nDetalle:\n{e}"
+            )
+
+    # =========================
+    # CLIENTES
+    # =========================
+    def _refresh_clientes_tree(self):
+        for item in self.clientes_tree.get_children():
+            self.clientes_tree.delete(item)
+
+        for sociedad in sorted(self.cuentas_clientes_por_sociedad.keys()):
+            cuentas = self.cuentas_clientes_por_sociedad[sociedad]
+            self.clientes_tree.insert("", "end", values=(sociedad, ", ".join(cuentas)))
+
+    def add_or_update_cliente(self):
+        sociedad = self.cli_sociedad_var.get().strip().upper()
+        cuentas_text = self.cli_cuentas_var.get().strip()
+
+        if not sociedad:
+            messagebox.showwarning("Advertencia", "Capture una sociedad para clientes")
+            return
+        if not cuentas_text:
+            messagebox.showwarning("Advertencia", "Capture las cuentas de clientes separadas por coma")
+            return
+
+        cuentas = [c.strip() for c in cuentas_text.split(",") if c.strip()]
+        self.cuentas_clientes_por_sociedad[sociedad] = cuentas
+        self._refresh_clientes_tree()
+
+        self.cli_sociedad_var.set("")
+        self.cli_cuentas_var.set("")
+        self.set_status(f"✓ Clientes actualizados para {sociedad}")
+
+    def remove_cliente(self):
+        selected = self.clientes_tree.selection()
+        if not selected:
+            messagebox.showwarning("Advertencia", "Seleccione una sociedad de clientes para eliminar")
+            return
+
+        item = selected[0]
+        sociedad = self.clientes_tree.item(item, "values")[0]
+        self.cuentas_clientes_por_sociedad.pop(sociedad, None)
+        self._refresh_clientes_tree()
+        self.cli_sociedad_var.set("")
+        self.cli_cuentas_var.set("")
+        self.set_status(f"✓ Clientes eliminados para {sociedad}")
+
+    def on_select_cliente(self, event=None):
+        selected = self.clientes_tree.selection()
+        if not selected:
+            return
+        item = selected[0]
+        sociedad, cuentas = self.clientes_tree.item(item, "values")
+        self.cli_sociedad_var.set(sociedad)
+        self.cli_cuentas_var.set(cuentas)
+
+    def save_clientes_to_txt(self):
+        try:
+            with open(self.clientes_txt_path, "w", encoding="utf-8") as f:
+                f.write("CUENTAS_CLIENTES_POR_SOCIEDAD = {\n")
+                for sociedad in sorted(self.cuentas_clientes_por_sociedad.keys()):
+                    cuentas = self.cuentas_clientes_por_sociedad[sociedad]
+                    cuentas_str = ", ".join([f'"{c}"' for c in cuentas])
+                    f.write(f'    "{sociedad}": [{cuentas_str}],\n')
+                f.write("}\n")
+
+            self.set_status("✓ TXT de clientes guardado correctamente")
+            messagebox.showinfo("Éxito", f"Archivo guardado correctamente:\n{self.clientes_txt_path}")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo guardar el TXT de clientes:\n{e}")
+
+    def _load_clientes_from_txt(self):
+        if not os.path.exists(self.clientes_txt_path):
+            return
+        try:
+            with open(self.clientes_txt_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+
+            if "=" in content:
+                _, dict_text = content.split("=", 1)
+                data = ast.literal_eval(dict_text.strip())
+                if isinstance(data, dict):
+                    self.cuentas_clientes_por_sociedad = {
+                        str(k).upper(): [str(x).strip() for x in v]
+                        for k, v in data.items()
+                    }
+        except Exception as e:
+            messagebox.showwarning(
+                "Advertencia",
+                f"No se pudo cargar el TXT de clientes.\nSe usarán valores por defecto.\n\nDetalle:\n{e}"
+            )
+
+    # =========================
+    # LOAD ALL
+    # =========================
+    def _load_all_configs(self):
+        self._load_proveedores_from_txt()
+        self._load_clientes_from_txt()
+
+    # ===== Helpers =====
+    def select_input_path(self):
+        path = filedialog.askdirectory(title="Selecciona carpeta de entrada (proveedores)")
+        if path:
+            self.input_path_var.set(path)
+            self.input_path = path
+
+    def select_clientes_path(self):
+        path = filedialog.askdirectory(title="Selecciona carpeta de entrada (clientes)")
+        if path:
+            self.clientes_path_var.set(path)
+            self.clientes_path = path
+
+    def select_output_path(self):
+        path = filedialog.askdirectory(title="Selecciona carpeta de salida")
+        if path:
+            self.output_path_var.set(path)
+            self.output_path = path
+
     # ===== Event Handlers =====
-    
     def add_sociedad(self):
-        """Add a sociedad to the list"""
         sociedad = self.sociedad_var.get().strip().upper()
-        
+
         if not sociedad:
             messagebox.showwarning("Advertencia", "Por favor ingrese una sociedad")
             return
-        
+
         if sociedad in self.sociedades_list:
             messagebox.showwarning("Advertencia", f"La sociedad {sociedad} ya está en la lista")
             return
-        
+
         self.sociedades_list.append(sociedad)
         self.sociedades_listbox.insert(tk.END, sociedad)
         self.sociedad_var.set("")
         self.sociedad_entry.focus()
-    
+
     def remove_sociedad(self):
-        """Remove selected sociedad from the list"""
         selection = self.sociedades_listbox.curselection()
-        
+
         if not selection:
             messagebox.showwarning("Advertencia", "Por favor seleccione una sociedad para eliminar")
             return
-        
+
         index = selection[0]
         sociedad = self.sociedades_listbox.get(index)
-        
+
         self.sociedades_listbox.delete(index)
         self.sociedades_list.remove(sociedad)
-    
+
     def validate_dates(self):
-        """Validate date format"""
         try:
-            datetime.strptime(self.date_from_var.get(), "%d.%m.%Y")
-            datetime.strptime(self.date_to_var.get(), "%d.%m.%Y")
+            fecha_desde = datetime.strptime(self.date_from_var.get(), "%d.%m.%Y")
+            fecha_hasta = datetime.strptime(self.date_to_var.get(), "%d.%m.%Y")
+
+            if fecha_desde > fecha_hasta:
+                messagebox.showerror("Error", "La fecha desde no puede ser mayor a la fecha hasta")
+                return False
+
             return True
         except ValueError:
             messagebox.showerror("Error", "Formato de fecha inválido. Use DD.MM.YYYY")
             return False
-    
+
     def get_config(self):
-        """Get current configuration as dictionary"""
+        self.input_path = self.input_path_var.get().strip()
+        self.clientes_path = self.clientes_path_var.get().strip()
+        self.output_path = self.output_path_var.get().strip()
+
         return {
-            'sociedades': self.sociedades_list,
-            'date_from': self.date_from_var.get(),
-            'date_to': self.date_to_var.get(),
-            'input_path': self.input_path,
-            'clientes_path': self.clientes_path,
-            'output_path': self.output_path,
-            'fbl1n_range_from': self.fbl1n_range_from_var.get().strip(),
-            'fbl1n_range_to':   self.fbl1n_range_to_var.get().strip(),
-            'fbl5n_range_from': self.fbl5n_range_from_var.get().strip(),
-            'fbl5n_range_to':   self.fbl5n_range_to_var.get().strip(),
+            "sociedades": self.sociedades_list,
+            "date_from": self.date_from_var.get(),
+            "date_to": self.date_to_var.get(),
+            "input_path": self.input_path,
+            "clientes_path": self.clientes_path,
+            "output_path": self.output_path,
+            "fbl1n_range_from": self.fbl1n_from_var.get().strip(),
+            "fbl1n_range_to":   self.fbl1n_to_var.get().strip(),
+            "fbl5n_range_from": self.fbl5n_from_var.get().strip(),
+            "fbl5n_range_to":   self.fbl5n_to_var.get().strip(),
+            "cuentas_proveedores_por_sociedad": self.cuentas_proveedores_por_sociedad,
+            "cuentas_clientes_por_sociedad": self.cuentas_clientes_por_sociedad,
         }
-    
+
     def set_status(self, message):
-        """Update status message"""
         self.status_var.set(message)
-        self.root.update()
-    
+        self.root.update_idletasks()
+
     def disable_buttons(self):
-        """Disable all action buttons"""
-        self.download_btn.config(state='disabled', bg="#666666")
-        self.consolidate_btn.config(state='disabled', bg="#666666")
-    
+        self.download_btn.config(state="disabled", bg="#666666")
+        self.consolidate_btn.config(state="disabled", bg="#666666")
+
     def enable_buttons(self):
-        """Enable all action buttons"""
-        self.download_btn.config(state='normal', bg=self.primary_color)
-        self.consolidate_btn.config(state='normal', bg=self.success_color)
-    
-    # ===== Action Methods (to be implemented in controller) =====
-    
+        self.download_btn.config(state="normal", bg=self.primary_color)
+        self.consolidate_btn.config(state="normal", bg=self.success_color)
+
+    # ===== Action Methods =====
     def _handle_download(self):
+        if not self.validate_dates():
+            return
+
         if self.on_download:
             self.on_download()
         else:
-            messagebox.showinfo("Info", "Funcionalidad no conectada")
+            config = self.get_config()
+            messagebox.showinfo(
+                "Info",
+                f"Funcionalidad no conectada\n\nConfiguración actual:\n{config}"
+            )
 
     def _handle_consolidation(self):
+        if not self.validate_dates():
+            return
+
         if self.on_consolidation:
             self.on_consolidation()
         else:
-            messagebox.showinfo("Info", "Funcionalidad no conectada")
+            config = self.get_config()
+            messagebox.showinfo(
+                "Info",
+                f"Funcionalidad no conectada\n\nConfiguración actual:\n{config}"
+            )
+
 
 def main():
-    """Main entry point for standalone GUI testing"""
     root = tk.Tk()
     app = IntercompaniasGUI(root)
     root.mainloop()
