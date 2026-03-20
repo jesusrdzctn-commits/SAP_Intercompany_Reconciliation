@@ -65,12 +65,23 @@ class IntercompaniasGUI:
             self.config_path, "cuentas_clientes_por_sociedad.txt"
         )
 
-        os.makedirs(self.config_path, exist_ok=True)
+        self._create_project_folders()
 
         self._build_ui()
         self._load_all_configs()
         self._refresh_proveedores_tree()
         self._refresh_clientes_tree()
+
+    def _create_project_folders(self):
+        """Crea toda la estructura de carpetas al iniciar la app"""
+        folders = [
+            self.input_path,      # Input/Proveedores
+            self.clientes_path,   # Input/Clientes
+            self.output_path,     # Output
+            self.config_path,     # config
+        ]
+        for folder in folders:
+            os.makedirs(folder, exist_ok=True)
 
     def _build_ui(self):
         main_frame = tk.Frame(self.root, bg=self.bg_color, padx=20, pady=20)

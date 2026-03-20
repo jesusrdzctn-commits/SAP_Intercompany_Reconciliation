@@ -25,7 +25,7 @@ def create_executable():
 
     cmd = [
         "pyinstaller",
-        "--onefile",            # Un solo archivo .exe
+        "--onedir",            # Un solo archivo .exe
         "--windowed",           # Sin ventana de consola (app con GUI)
         "--name=Intercompanias",# Nombre del ejecutable
         "--icon=NONE",          # Sin icono personalizado (cambiar si hay un .ico)

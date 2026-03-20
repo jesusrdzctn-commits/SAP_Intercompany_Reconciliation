@@ -7,3 +7,7 @@ src/Input/Clientes/**
 !src/Input/Clientes/Clientes_Catalogo.xls
 
 src/Output/
+src/config/
+src/build/
+src/Intercompanias.spec
+src/dist/
