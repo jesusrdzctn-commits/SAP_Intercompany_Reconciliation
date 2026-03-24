@@ -994,18 +994,21 @@ class IntercompaniasGUI:
     def select_input_path(self):
         path = filedialog.askdirectory(title="Selecciona carpeta de entrada (proveedores)")
         if path:
+            path = os.path.normpath(path)  # ← convierte / a \
             self.input_path_var.set(path)
             self.input_path = path
 
     def select_clientes_path(self):
         path = filedialog.askdirectory(title="Selecciona carpeta de entrada (clientes)")
         if path:
+            path = os.path.normpath(path)  # ← convierte / a \
             self.clientes_path_var.set(path)
             self.clientes_path = path
 
     def select_output_path(self):
         path = filedialog.askdirectory(title="Selecciona carpeta de salida")
         if path:
+            path = os.path.normpath(path)  # ← convierte / a \
             self.output_path_var.set(path)
             self.output_path = path
 
@@ -1054,9 +1057,9 @@ class IntercompaniasGUI:
             return False
 
     def get_config(self):
-        self.input_path = self.input_path_var.get().strip()
-        self.clientes_path = self.clientes_path_var.get().strip()
-        self.output_path = self.output_path_var.get().strip()
+        self.input_path = os.path.normpath(self.input_path_var.get().strip())
+        self.clientes_path = os.path.normpath(self.clientes_path_var.get().strip())
+        self.output_path = os.path.normpath(self.output_path_var.get().strip())
 
         return {
             "sociedades": self.sociedades_list,
