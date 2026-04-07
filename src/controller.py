@@ -12,15 +12,7 @@ class IntercompaniasController:
     """Controller class that handles the business logic for the Intercompañías application"""
 
     def __init__(self, gui):
-        """
-        Initialize controller with GUI reference
-
-        Args:
-            gui: IntercompaniasGUI instance
-        """
         self.gui = gui
-
-        # Bind controller methods to GUI buttons
         self.gui.on_download = self.execute_download
         self.gui.on_consolidation = self.execute_consolidation
 
@@ -42,7 +34,6 @@ class IntercompaniasController:
             f"Los archivos de proveedores se guardarán en:\n{config['input_path']}\n\n"
             f"Los archivos de clientes se guardarán en:\n{config['clientes_path']}"
         )
-
         if not confirm:
             return
 
@@ -54,7 +45,6 @@ class IntercompaniasController:
 
         try:
             self._run_download_process(config)
-
             self.gui.set_status("✅ ¡Proceso completado exitosamente!")
             messagebox.showinfo(
                 "Éxito",
@@ -62,23 +52,15 @@ class IntercompaniasController:
                 f"Archivos de proveedores guardados en:\n{config['input_path']}\n\n"
                 f"Archivos de clientes guardados en:\n{config['clientes_path']}"
             )
-
         except Exception as e:
             self.gui.set_status("❌ Error en el proceso")
             messagebox.showerror("Error", f"Ocurrió un error durante el proceso:\n\n{str(e)}")
-
         finally:
             self.gui.enable_buttons()
             if "completado exitosamente" not in self.gui.status_var.get():
                 self.gui.set_status("✓ Listo para comenzar")
 
     def _run_download_process(self, config):
-        """
-        Internal method to execute the download process
-
-        Args:
-            config: Configuration dictionary from GUI
-        """
         DateFrom     = config['date_from']
         DateTo       = config['date_to']
         FolderPath   = config['input_path']
@@ -188,7 +170,7 @@ class IntercompaniasController:
                 wb_vacio.active.title = "Sin datos"
                 wb_vacio.save(FBL3N_Clientes_File)
 
-            # Guardar flags por sociedad para que la consolidación los lea
+            # Guardar flags por sociedad
             flags_sin_movimientos = {
                 'sin_proveedores': not fbl1n_con_datos,
                 'sin_clientes':    not fbl5n_con_datos,
@@ -204,14 +186,17 @@ class IntercompaniasController:
         """Execute the consolidation process"""
         config = self.gui.get_config()
 
+        mode = config.get("consolidation_mode", "manual")
+        mode_label = "Manual" if mode == "manual" else "Automático"
+
         confirm = messagebox.askyesno(
             "Confirmar Consolidación",
-            "¿Desea ejecutar el proceso de consolidación?\n\n"
+            f"¿Desea ejecutar el proceso de consolidación?\n\n"
+            f"Modo de cuentas: {mode_label}\n\n"
             f"Se leerán archivos de proveedores de:\n{config['input_path']}\n"
             f"Se leerán archivos de clientes de:\n{config['clientes_path']}\n\n"
             f"El archivo consolidado se guardará en:\n{config['output_path']}"
         )
-
         if not confirm:
             return
 
@@ -222,14 +207,12 @@ class IntercompaniasController:
 
         try:
             self._run_consolidation_process(config)
-
             self.gui.set_status("✅ ¡Consolidación completada!")
             messagebox.showinfo(
                 "Éxito",
                 "El proceso de consolidación se completó correctamente.\n\n"
                 f"Archivo guardado en:\n{config['output_path']}"
             )
-
         except FileNotFoundError as e:
             self.gui.set_status("❌ Archivos no encontrados")
             messagebox.showerror(
@@ -242,23 +225,22 @@ class IntercompaniasController:
         except Exception as e:
             self.gui.set_status("❌ Error en consolidación")
             messagebox.showerror("Error", f"Ocurrió un error durante la consolidación:\n\n{str(e)}")
-
         finally:
             self.gui.enable_buttons()
             if "completada" not in self.gui.status_var.get():
                 self.gui.set_status("✓ Listo para comenzar")
 
     def _run_consolidation_process(self, config):
-        """
-        Internal method to execute the consolidation process
-
-        Args:
-            config: Configuration dictionary from GUI
-        """
-        # Las rutas vienen directamente del GUI (ya incluyen Proveedores / Clientes)
         ruta_input_prov = config['input_path']
         ruta_input      = os.path.dirname(ruta_input_prov)   # carpeta Input padre
         ruta_output     = config['output_path']
+
+        mode = config.get("consolidation_mode", "manual")
+
+        # En modo automático se pasan None para que Consolidacion_V2
+        # omita el filtro y use todas las cuentas de los archivos FBL3N.
+        cuentas_proveedores = config['cuentas_proveedores_por_sociedad'] if mode == "manual" else None
+        cuentas_clientes    = config['cuentas_clientes_por_sociedad']    if mode == "manual" else None
 
         for sociedad in config['sociedades']:
             # Leer flags dejados por la descarga (si existen)
@@ -278,8 +260,8 @@ class IntercompaniasController:
                 sin_proveedores=flags['sin_proveedores'],
                 sin_clientes=flags['sin_clientes'],
                 callback_status=self.gui.set_status,
-                cuentas_proveedores=config['cuentas_proveedores_por_sociedad'],
-                cuentas_clientes=config['cuentas_clientes_por_sociedad'],
+                cuentas_proveedores=cuentas_proveedores,
+                cuentas_clientes=cuentas_clientes,
             )
 
         num_archivos = len(config['sociedades'])
