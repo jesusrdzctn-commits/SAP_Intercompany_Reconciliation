@@ -14,9 +14,6 @@ def _matriz_sin_movimientos(col_nombre):
     """
     Devuelve un DataFrame con el formato estándar de matriz pero con una sola
     fila 'SIN MOVIMIENTOS', cuenta default 7201000 y todos los valores en cero.
-
-    Args:
-        col_nombre (str): Nombre de la primera columna ('Proveedores' o 'Clientes').
     """
     cuenta_default = "7201000"
     filas = ["SIN MOVIMIENTOS", "Totales", "Cuadre Balanza", "variaciones"]
@@ -27,7 +24,7 @@ def _matriz_sin_movimientos(col_nombre):
     return df
 
 
-# Valores por defecto para cuentas por sociedad
+# Valores por defecto para cuentas por sociedad (modo manual sin TXT cargado)
 _DEFAULT_CUENTAS_PROVEEDORES = {
     "MX01": ["6600022", "7201000", "7204000"],
     "MX05": ["7201000"],
@@ -68,10 +65,10 @@ def ejecutar_consolidacion_por_sociedad(
         sin_proveedores (bool): Si True, omite procesamiento de proveedores
         sin_clientes (bool): Si True, omite procesamiento de clientes
         callback_status (function, optional): Función callback para actualizar estado
-        cuentas_proveedores (dict, optional): Diccionario {sociedad: [cuentas]} para proveedores.
-                                              Si None, usa los valores por defecto.
-        cuentas_clientes (dict, optional): Diccionario {sociedad: [cuentas]} para clientes.
-                                           Si None, usa los valores por defecto.
+        cuentas_proveedores (dict | None): Diccionario {sociedad: [cuentas]} para proveedores.
+            - Si se pasa un dict  → modo Manual: filtra sólo esas cuentas.
+            - Si se pasa None     → modo Automático: usa TODAS las cuentas del archivo FBL3N.
+        cuentas_clientes (dict | None): Igual que cuentas_proveedores pero para clientes.
 
     Returns:
         str: Ruta del archivo consolidado generado
@@ -81,9 +78,13 @@ def ejecutar_consolidacion_por_sociedad(
         if callback_status:
             callback_status(message)
 
-    # Usar diccionarios recibidos o los defaults
-    CUENTAS_PROVEEDORES_POR_SOCIEDAD = cuentas_proveedores if cuentas_proveedores else _DEFAULT_CUENTAS_PROVEEDORES
-    CUENTAS_CLIENTES_POR_SOCIEDAD    = cuentas_clientes    if cuentas_clientes    else _DEFAULT_CUENTAS_CLIENTES
+    # Determinar si estamos en modo automático (None = no filtrar)
+    modo_automatico_prov = cuentas_proveedores is None
+    modo_automatico_cli  = cuentas_clientes    is None
+
+    # Cuando es manual y no se pasó dict, usar defaults
+    CUENTAS_PROVEEDORES_POR_SOCIEDAD = cuentas_proveedores if not modo_automatico_prov else {}
+    CUENTAS_CLIENTES_POR_SOCIEDAD    = cuentas_clientes    if not modo_automatico_cli  else {}
 
     # =========================
     # === Rutas y archivos ===
@@ -162,11 +163,8 @@ def ejecutar_consolidacion_por_sociedad(
         cat_reducido = cat[["Acreedor", "Nombre 1"]].drop_duplicates()
 
         fbl1n = fbl1n.merge(
-            cat_reducido,
-            how="left",
-            left_on="Cuenta",
-            right_on="Acreedor",
-            suffixes=("_x", "_y")
+            cat_reducido, how="left",
+            left_on="Cuenta", right_on="Acreedor", suffixes=("_x", "_y")
         )
         fbl1n = fbl1n.drop(columns=["Acreedor_y"], errors="ignore")
         fbl1n = fbl1n.rename(columns={"Acreedor_x": "Acreedor"})
@@ -192,10 +190,13 @@ def ejecutar_consolidacion_por_sociedad(
             if col not in fbl3n.columns:
                 fbl3n[col] = ""
 
-        # Filtrar cuentas según sociedad
-        cuentas_filtro = CUENTAS_PROVEEDORES_POR_SOCIEDAD.get(sociedad.upper(), ["6600022"])
-        if "Cuenta" in fbl3n.columns:
+        # ── Filtro de cuentas ──────────────────────────────────────────────
+        # Modo Manual: filtra por las cuentas definidas para la sociedad.
+        # Modo Automático: usa todas las cuentas presentes en el archivo FBL3N.
+        if not modo_automatico_prov and "Cuenta" in fbl3n.columns:
+            cuentas_filtro = CUENTAS_PROVEEDORES_POR_SOCIEDAD.get(sociedad.upper(), ["6600022"])
             fbl3n = fbl3n[fbl3n["Cuenta"].isin(cuentas_filtro)]
+        # En modo automático no se aplica ningún filtro → se conservan todas las cuentas.
 
         col_texto = "Texto" if "Texto" in fbl1n.columns else (
             fbl1n.columns[19] if len(fbl1n.columns) > 19 else fbl1n.columns[-1]
@@ -269,9 +270,9 @@ def ejecutar_consolidacion_por_sociedad(
 
         pivot_prov = pivot_prov.reindex(index=proveedores_list, columns=cuentas_prov).fillna(0)
 
-        totales_prov    = pivot_prov.sum(axis=0).to_frame().T
+        totales_prov     = pivot_prov.sum(axis=0).to_frame().T
         totales_prov.index = ["Totales"]
-        cuadre_prov     = pd.DataFrame([[0] * len(cuentas_prov)], index=["Cuadre Balanza"], columns=cuentas_prov)
+        cuadre_prov      = pd.DataFrame([[0] * len(cuentas_prov)], index=["Cuadre Balanza"], columns=cuentas_prov)
         variaciones_prov = pd.DataFrame([[0] * len(cuentas_prov)], index=["variaciones"],    columns=cuentas_prov)
         matriz_prov = pd.concat([pivot_prov, totales_prov, cuadre_prov, variaciones_prov], axis=0)
         matriz_prov.insert(0, "Proveedores", matriz_prov.index)
@@ -344,10 +345,13 @@ def ejecutar_consolidacion_por_sociedad(
         for col in ["Concepto Intercompañias", "UUID Auditor"]:
             fbl3n_cli[col] = ""
 
-        # Filtrar cuentas de clientes según sociedad
-        cuentas_clientes_filtrar = CUENTAS_CLIENTES_POR_SOCIEDAD.get(sociedad.upper(), ["7201000"])
-        if "Cuenta" in fbl3n_cli.columns:
+        # ── Filtro de cuentas clientes ─────────────────────────────────────
+        # Modo Manual: filtra por las cuentas definidas para la sociedad.
+        # Modo Automático: usa todas las cuentas presentes en el archivo FBL3N Clientes.
+        if not modo_automatico_cli and "Cuenta" in fbl3n_cli.columns:
+            cuentas_clientes_filtrar = CUENTAS_CLIENTES_POR_SOCIEDAD.get(sociedad.upper(), ["7201000"])
             fbl3n_cli = fbl3n_cli[fbl3n_cli["Cuenta"].isin(cuentas_clientes_filtrar)]
+        # En modo automático no se aplica ningún filtro → se conservan todas las cuentas.
 
         fbl5n["Nº documento"] = fbl5n["Nº documento"].astype(str).str.strip()
         fbl5n = fbl5n[
@@ -425,7 +429,7 @@ def ejecutar_consolidacion_por_sociedad(
         pivot_cli = pivot_cli.reindex(index=clientes_list, columns=cuentas_cli).fillna(0)
         totales_cli    = pivot_cli.sum(axis=0).to_frame().T
         totales_cli.index = ["Totales"]
-        cuadre_cli     = pd.DataFrame([[0] * len(cuentas_cli)], index=["Cuadre Balanza"], columns=cuentas_cli)
+        cuadre_cli      = pd.DataFrame([[0] * len(cuentas_cli)], index=["Cuadre Balanza"], columns=cuentas_cli)
         variaciones_cli = pd.DataFrame([[0] * len(cuentas_cli)], index=["variaciones"],    columns=cuentas_cli)
         matriz_cli = pd.concat([pivot_cli, totales_cli, cuadre_cli, variaciones_cli], axis=0)
         matriz_cli.insert(0, "Clientes", matriz_cli.index)
@@ -490,6 +494,7 @@ if __name__ == "__main__":
             ruta_output,
             sociedad="MX73",
             callback_status=lambda msg: print(msg)
+            # cuentas_proveedores y cuentas_clientes omitidos → modo Automático
         )
         print(f"\n🎉 PROCESO COMPLETO FINALIZADO EXITOSAMENTE 🎉")
         print(f"Archivo guardado en: {archivo_generado}")
