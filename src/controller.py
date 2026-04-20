@@ -12,15 +12,7 @@ class IntercompaniasController:
     """Controller class that handles the business logic for the Intercompañías application"""
 
     def __init__(self, gui):
-        """
-        Initialize controller with GUI reference
-
-        Args:
-            gui: IntercompaniasGUI instance
-        """
         self.gui = gui
-
-        # Bind controller methods to GUI buttons
         self.gui.on_download = self.execute_download
         self.gui.on_consolidation = self.execute_consolidation
 
@@ -42,7 +34,6 @@ class IntercompaniasController:
             f"Los archivos de proveedores se guardarán en:\n{config['input_path']}\n\n"
             f"Los archivos de clientes se guardarán en:\n{config['clientes_path']}"
         )
-
         if not confirm:
             return
 
@@ -54,7 +45,6 @@ class IntercompaniasController:
 
         try:
             self._run_download_process(config)
-
             self.gui.set_status("✅ ¡Proceso completado exitosamente!")
             messagebox.showinfo(
                 "Éxito",
@@ -62,156 +52,188 @@ class IntercompaniasController:
                 f"Archivos de proveedores guardados en:\n{config['input_path']}\n\n"
                 f"Archivos de clientes guardados en:\n{config['clientes_path']}"
             )
-
         except Exception as e:
             self.gui.set_status("❌ Error en el proceso")
             messagebox.showerror("Error", f"Ocurrió un error durante el proceso:\n\n{str(e)}")
-
         finally:
             self.gui.enable_buttons()
             if "completado exitosamente" not in self.gui.status_var.get():
                 self.gui.set_status("✓ Listo para comenzar")
 
     def _run_download_process(self, config):
-        """
-        Internal method to execute the download process
+        # Bloquear interacción con Excel durante toda la descarga
+        try:
+            excel = win32.GetObject(Class="Excel.Application")
+            excel.Interactive = False
+        except Exception:
+            pass
 
-        Args:
-            config: Configuration dictionary from GUI
-        """
-        DateFrom     = config['date_from']
-        DateTo       = config['date_to']
-        FolderPath   = config['input_path']
-        ClientesPath = config['clientes_path']
-        sociedades   = config['sociedades']
-        fbl1n_from   = config['fbl1n_range_from']
-        fbl1n_to     = config['fbl1n_range_to']
-        fbl5n_from   = config['fbl5n_range_from']
-        fbl5n_to     = config['fbl5n_range_to']
+        try:
+            DateFrom     = config['date_from']
+            DateTo       = config['date_to']
+            FolderPath   = config['input_path']
+            ClientesPath = config['clientes_path']
+            sociedades   = config['sociedades']
+            fbl1n_from   = config['fbl1n_range_from']
+            fbl1n_to     = config['fbl1n_range_to']
+            fbl5n_from   = config['fbl5n_range_from']
+            fbl5n_to     = config['fbl5n_range_to']
 
-        for idx, sociedad in enumerate(sociedades, 1):
-            self.gui.set_status(f"📥 Procesando sociedad {sociedad} ({idx}/{len(sociedades)})...")
+            for idx, sociedad in enumerate(sociedades, 1):
+                self.gui.set_status(f"📥 Procesando sociedad {sociedad} ({idx}/{len(sociedades)})...")
 
-            # Step 1: FBL1N
-            self.gui.set_status(f"📥 Descargando FBL1 - {sociedad}...")
-            FBL1_FileName = f"FBL1_Proveedores_{sociedad}.xlsx"
-            fbl1n_con_datos = FBL1N_Intercompañias(
-                [sociedad], DateFrom, DateTo, FolderPath, FBL1_FileName, fbl1n_from, fbl1n_to
-            )
-            FBL1_Intercompañias_File = os.path.join(FolderPath, FBL1_FileName)
+                # Step 1: FBL1N
+                self.gui.set_status(f"📥 Descargando FBL1N - {sociedad}...")
+                FBL1_FileName = f"FBL1_Proveedores_{sociedad}.xlsx"
+                fbl1n_con_datos = FBL1N_Intercompañias(
+                    [sociedad], DateFrom, DateTo, FolderPath, FBL1_FileName, fbl1n_from, fbl1n_to
+                )
+                FBL1_Intercompañias_File = os.path.join(FolderPath, FBL1_FileName)
 
-            time.sleep(5)
+                time.sleep(10)
 
-            try:
-                excel = win32.GetObject(Class="Excel.Application")
-                for wb in list(excel.Workbooks):
+                try:
+                    excel = win32.GetObject(Class="Excel.Application")
+                    for wb in list(excel.Workbooks):
+                        try:
+                            if os.path.abspath(wb.FullName) == FBL1_Intercompañias_File:
+                                wb.Close(SaveChanges=False)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+                # Step 2: ZFIQ02
+                self.gui.set_status(f"📥 Descargando ZFIQ02 - {sociedad}...")
+                ZFIQ02_FileName = f"ZFIQ02_Proveedores_{sociedad}.xlsx"
+                ZFIQ02_Intercompañias_File = os.path.join(FolderPath, ZFIQ02_FileName)
+                ZFIQ02_Intercompañias([sociedad], ZFIQ02_Intercompañias_File)
+
+                # Step 3: FBL3N Proveedores
+                FBL3N_FileName = f"FBL3N_Proveedores_{sociedad}.xlsx"
+                FBL3N_File = os.path.join(FolderPath, FBL3N_FileName)
+
+                if fbl1n_con_datos:
+                    self.gui.set_status(f"📄 Procesando documentos - {sociedad}...")
+                    df_FBL1 = pd.read_excel(FBL1_Intercompañias_File, engine='openpyxl')
+                    colNDocument = df_FBL1.columns[6]
+                    resultado = df_FBL1[colNDocument].dropna().astype(str).unique().tolist()
+
+                    self.gui.set_status(f"📥 Descargando FBL3N - {sociedad}...")
+                    if os.path.exists(FBL3N_File):
+                        os.remove(FBL3N_File)
+                    FBL3N(resultado, [sociedad], DateFrom, DateTo, FolderPath, FBL3N_FileName)
+                    time.sleep(8)
+
                     try:
-                        if os.path.abspath(wb.FullName) == FBL1_Intercompañias_File:
-                            wb.Close(SaveChanges=False)
+                        excel = win32.GetObject(Class="Excel.Application")
+                        for wb in list(excel.Workbooks):
+                            try:
+                                if os.path.abspath(wb.FullName) == os.path.abspath(FBL3N_File):
+                                    wb.Close(SaveChanges=False)
+                            except Exception:
+                                pass
                     except Exception:
                         pass
-            except Exception:
-                pass
+                else:
+                    self.gui.set_status(f"⚠️ FBL1N sin movimientos - {sociedad}, se omite FBL3N Proveedores")
+                    import openpyxl as _oxl
+                    wb_vacio = _oxl.Workbook()
+                    wb_vacio.active.title = "Sin datos"
+                    wb_vacio.save(FBL3N_File)
 
-            # Step 2: ZFIQ02
-            self.gui.set_status(f"📥 Descargando ZFIQ02 - {sociedad}...")
-            ZFIQ02_FileName = f"ZFIQ02_Proveedores_{sociedad}.xlsx"
-            ZFIQ02_Intercompañias_File = os.path.join(FolderPath, ZFIQ02_FileName)
-            ZFIQ02_Intercompañias([sociedad], ZFIQ02_Intercompañias_File)
+                self.gui.set_status(f"✅ Proveedores {sociedad} completados ({idx}/{len(sociedades)})")
+                time.sleep(5)
 
-            # Step 3: FBL3N Proveedores
-            FBL3N_FileName = f"FBL3N_Proveedores_{sociedad}.xlsx"
-            FBL3N_File = os.path.join(FolderPath, FBL3N_FileName)
+                # Step 4: FBL5N
+                self.gui.set_status(f"📥 Descargando FBL5N - {sociedad}...")
+                FBL5_FileName = f"FBL5N_Clientes_{sociedad}.xlsx"
+                FBL5_File = os.path.join(ClientesPath, FBL5_FileName)
+                fbl5n_con_datos = FBL5_Intercompañias(
+                    [sociedad], DateFrom, DateTo, ClientesPath, FBL5_FileName, fbl5n_from, fbl5n_to
+                )
 
-            if fbl1n_con_datos:
-                self.gui.set_status(f"📄 Procesando documentos - {sociedad}...")
-                df_FBL1 = pd.read_excel(FBL1_Intercompañias_File, engine='openpyxl')
-                colNDocument = df_FBL1.columns[6]
-                resultado = df_FBL1[colNDocument].dropna().astype(str).unique().tolist()
+                time.sleep(10)
 
-                self.gui.set_status(f"📥 Descargando FBL3N - {sociedad}...")
-                if os.path.exists(FBL3N_File):
-                    os.remove(FBL3N_File)
-                FBL3N(resultado, [sociedad], DateFrom, DateTo, FolderPath, FBL3N_FileName)
-                time.sleep(3)
-            else:
-                self.gui.set_status(f"⚠️ FBL1N sin movimientos - {sociedad}, se omite FBL3N Proveedores")
-                import openpyxl as _oxl
-                wb_vacio = _oxl.Workbook()
-                wb_vacio.active.title = "Sin datos"
-                wb_vacio.save(FBL3N_File)
+                try:
+                    excel = win32.GetObject(Class="Excel.Application")
+                    for wb in list(excel.Workbooks):
+                        try:
+                            if os.path.abspath(wb.FullName) == os.path.abspath(FBL5_File):
+                                wb.Close(SaveChanges=False)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
 
-            self.gui.set_status(f"✅ Proveedores {sociedad} completados ({idx}/{len(sociedades)})")
-            time.sleep(2)
-
-            # Step 4: FBL5N
-            self.gui.set_status(f"📥 Descargando FBL5N - {sociedad}...")
-            FBL5_FileName = f"FBL5N_Clientes_{sociedad}.xlsx"
-            FBL5_File = os.path.join(ClientesPath, FBL5_FileName)
-            fbl5n_con_datos = FBL5_Intercompañias(
-                [sociedad], DateFrom, DateTo, ClientesPath, FBL5_FileName, fbl5n_from, fbl5n_to
-            )
-
-            time.sleep(5)
-
-            try:
-                excel = win32.GetObject(Class="Excel.Application")
-                for wb in list(excel.Workbooks):
-                    try:
-                        if os.path.abspath(wb.FullName) == os.path.abspath(FBL5_File):
-                            wb.Close(SaveChanges=False)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-            # Step 5: FBL3N Clientes
-            self.gui.set_status(f"📥 Descargando FBL3N Clientes - {sociedad}...")
-            FBL3N_Clientes_FileName = f"FBL3N_Clientes_{sociedad}.xlsx"
-            FBL3N_Clientes_File = os.path.join(ClientesPath, FBL3N_Clientes_FileName)
-
-            if fbl5n_con_datos:
-                self.gui.set_status(f"📄 Procesando documentos clientes - {sociedad}...")
-                df_FBL5 = pd.read_excel(FBL5_File, engine='openpyxl')
-                colNDocument_cli = df_FBL5.columns[8]
-                resultado_cli = df_FBL5[colNDocument_cli].dropna().astype(str).unique().tolist()
-
+                # Step 5: FBL3N Clientes
                 self.gui.set_status(f"📥 Descargando FBL3N Clientes - {sociedad}...")
-                if os.path.exists(FBL3N_Clientes_File):
-                    os.remove(FBL3N_Clientes_File)
-                FBL3N(resultado_cli, [sociedad], DateFrom, DateTo, ClientesPath, FBL3N_Clientes_FileName)
-                time.sleep(3)
-            else:
-                self.gui.set_status(f"⚠️ FBL5N sin movimientos - {sociedad}, se omite FBL3N Clientes")
-                import openpyxl as _oxl
-                wb_vacio = _oxl.Workbook()
-                wb_vacio.active.title = "Sin datos"
-                wb_vacio.save(FBL3N_Clientes_File)
+                FBL3N_Clientes_FileName = f"FBL3N_Clientes_{sociedad}.xlsx"
+                FBL3N_Clientes_File = os.path.join(ClientesPath, FBL3N_Clientes_FileName)
 
-            # Guardar flags por sociedad para que la consolidación los lea
-            flags_sin_movimientos = {
-                'sin_proveedores': not fbl1n_con_datos,
-                'sin_clientes':    not fbl5n_con_datos,
-            }
-            flags_path = os.path.join(FolderPath, f"_flags_{sociedad}.json")
-            with open(flags_path, 'w') as f:
-                json.dump(flags_sin_movimientos, f)
+                if fbl5n_con_datos:
+                    self.gui.set_status(f"📄 Procesando documentos clientes - {sociedad}...")
+                    df_FBL5 = pd.read_excel(FBL5_File, engine='openpyxl')
+                    colNDocument_cli = df_FBL5.columns[8]
+                    resultado_cli = df_FBL5[colNDocument_cli].dropna().astype(str).unique().tolist()
 
-            self.gui.set_status(f"✅ Sociedad {sociedad} completada ({idx}/{len(sociedades)})")
-            time.sleep(2)
+                    self.gui.set_status(f"📥 Descargando FBL3N Clientes - {sociedad}...")
+                    if os.path.exists(FBL3N_Clientes_File):
+                        os.remove(FBL3N_Clientes_File)
+                    FBL3N(resultado_cli, [sociedad], DateFrom, DateTo, ClientesPath, FBL3N_Clientes_FileName)
+                    time.sleep(8)
+
+                    try:
+                        excel = win32.GetObject(Class="Excel.Application")
+                        for wb in list(excel.Workbooks):
+                            try:
+                                if os.path.abspath(wb.FullName) == os.path.abspath(FBL3N_Clientes_File):
+                                    wb.Close(SaveChanges=False)
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+                else:
+                    self.gui.set_status(f"⚠️ FBL5N sin movimientos - {sociedad}, se omite FBL3N Clientes")
+                    import openpyxl as _oxl
+                    wb_vacio = _oxl.Workbook()
+                    wb_vacio.active.title = "Sin datos"
+                    wb_vacio.save(FBL3N_Clientes_File)
+
+                # Guardar flags por sociedad
+                flags_sin_movimientos = {
+                    'sin_proveedores': not fbl1n_con_datos,
+                    'sin_clientes':    not fbl5n_con_datos,
+                }
+                flags_path = os.path.join(FolderPath, f"_flags_{sociedad}.json")
+                with open(flags_path, 'w') as f:
+                    json.dump(flags_sin_movimientos, f)
+
+                self.gui.set_status(f"✅ Sociedad {sociedad} completada ({idx}/{len(sociedades)})")
+                time.sleep(5)
+        finally:
+            # Restaurar interacción con Excel al terminar (o si hay error)
+            try:
+                excel = win32.GetObject(Class="Excel.Application")
+                excel.Interactive = True
+            except Exception:
+                pass
 
     def execute_consolidation(self):
         """Execute the consolidation process"""
         config = self.gui.get_config()
 
+        mode = config.get("consolidation_mode", "manual")
+        mode_label = "Manual" if mode == "manual" else "Automático"
+
         confirm = messagebox.askyesno(
             "Confirmar Consolidación",
-            "¿Desea ejecutar el proceso de consolidación?\n\n"
+            f"¿Desea ejecutar el proceso de consolidación?\n\n"
+            f"Modo de cuentas: {mode_label}\n\n"
             f"Se leerán archivos de proveedores de:\n{config['input_path']}\n"
             f"Se leerán archivos de clientes de:\n{config['clientes_path']}\n\n"
             f"El archivo consolidado se guardará en:\n{config['output_path']}"
         )
-
         if not confirm:
             return
 
@@ -222,14 +244,12 @@ class IntercompaniasController:
 
         try:
             self._run_consolidation_process(config)
-
             self.gui.set_status("✅ ¡Consolidación completada!")
             messagebox.showinfo(
                 "Éxito",
                 "El proceso de consolidación se completó correctamente.\n\n"
                 f"Archivo guardado en:\n{config['output_path']}"
             )
-
         except FileNotFoundError as e:
             self.gui.set_status("❌ Archivos no encontrados")
             messagebox.showerror(
@@ -242,23 +262,22 @@ class IntercompaniasController:
         except Exception as e:
             self.gui.set_status("❌ Error en consolidación")
             messagebox.showerror("Error", f"Ocurrió un error durante la consolidación:\n\n{str(e)}")
-
         finally:
             self.gui.enable_buttons()
             if "completada" not in self.gui.status_var.get():
                 self.gui.set_status("✓ Listo para comenzar")
 
     def _run_consolidation_process(self, config):
-        """
-        Internal method to execute the consolidation process
-
-        Args:
-            config: Configuration dictionary from GUI
-        """
-        # Las rutas vienen directamente del GUI (ya incluyen Proveedores / Clientes)
         ruta_input_prov = config['input_path']
         ruta_input      = os.path.dirname(ruta_input_prov)   # carpeta Input padre
         ruta_output     = config['output_path']
+
+        mode = config.get("consolidation_mode", "manual")
+
+        # En modo automático se pasan None para que Consolidacion_V2
+        # omita el filtro y use todas las cuentas de los archivos FBL3N.
+        cuentas_proveedores = config['cuentas_proveedores_por_sociedad'] if mode == "manual" else None
+        cuentas_clientes    = config['cuentas_clientes_por_sociedad']    if mode == "manual" else None
 
         for sociedad in config['sociedades']:
             # Leer flags dejados por la descarga (si existen)
@@ -278,8 +297,8 @@ class IntercompaniasController:
                 sin_proveedores=flags['sin_proveedores'],
                 sin_clientes=flags['sin_clientes'],
                 callback_status=self.gui.set_status,
-                cuentas_proveedores=config['cuentas_proveedores_por_sociedad'],
-                cuentas_clientes=config['cuentas_clientes_por_sociedad'],
+                cuentas_proveedores=cuentas_proveedores,
+                cuentas_clientes=cuentas_clientes,
             )
 
         num_archivos = len(config['sociedades'])
