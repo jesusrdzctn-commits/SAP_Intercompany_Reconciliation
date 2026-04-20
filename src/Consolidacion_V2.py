@@ -293,7 +293,7 @@ def ejecutar_consolidacion_por_sociedad(
         cols_numericas_prov = matriz_prov.columns.difference(["Sociedad", "Proveedores"])
         matriz_prov.loc[1:, cols_numericas_prov] = matriz_prov.loc[1:, cols_numericas_prov].apply(
             pd.to_numeric, errors='coerce'
-        ).abs()
+        )
 
     # =========================
     # === CLIENTES
@@ -450,7 +450,7 @@ def ejecutar_consolidacion_por_sociedad(
         cols_numericas = matriz_cli.columns.difference(["Sociedad", "Clientes"])
         matriz_cli.loc[1:, cols_numericas] = matriz_cli.loc[1:, cols_numericas].apply(
             pd.to_numeric, errors='coerce'
-        ).abs()
+        )
 
     # =========================
     # === Exportar Excel consolidado ===

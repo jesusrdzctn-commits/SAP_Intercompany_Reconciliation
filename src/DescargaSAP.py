@@ -15,7 +15,7 @@ def FBL1N_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName, ac
     session = connection.Children(0)
     session.findById("wnd[0]").maximize
     session.findById("wnd[0]").maximize
-    session.findById("wnd[0]/tbar[0]/okcd").text = "FBL1"
+    session.findById("wnd[0]/tbar[0]/okcd").text = "/nFBL1"
     session.findById("wnd[0]").sendVKey(0)
     session.findById("wnd[0]/usr/ctxtKD_LIFNR-LOW").text  = account_from
     session.findById("wnd[0]/usr/ctxtKD_LIFNR-HIGH").text = account_to
@@ -96,13 +96,15 @@ def _verificar_sin_partidas(session, ruta_archivo):
     except Exception:
         sbar_text = ""
 
-    sin_partidas = "MSITEM033" in sbar_text or "ninguna partida" in sbar_text.lower()
+    MENSAJES_SIN_DATOS = ("MSITEM033", "MSITEM030", "ninguna partida", "ninguna cuenta")
+
+    sin_partidas = any(m in sbar_text or m in sbar_text.lower() for m in MENSAJES_SIN_DATOS)
 
     # También puede venir como wnd[1] modal
     if not sin_partidas:
         try:
             msg = session.findById("wnd[1]/usr/txtMESSTXT1").Text.strip()
-            sin_partidas = "ninguna partida" in msg.lower() or "MSITEM033" in msg
+            sin_partidas = any(m in msg or m in msg.lower() for m in MENSAJES_SIN_DATOS)
         except Exception:
             pass
 
@@ -157,7 +159,7 @@ def FBL5_Intercompañias(sociedades,DateFrom, Date_To, FolderPath, FileName, acc
     session = connection.Children(0)
     session.findById("wnd[0]").maximize
     session.findById("wnd[0]").maximize
-    session.findById("wnd[0]/tbar[0]/okcd").text = "FBL5"
+    session.findById("wnd[0]/tbar[0]/okcd").text = "/nFBL5"
     session.findById("wnd[0]").sendVKey(0)
     session.findById("wnd[0]/usr/ctxtDD_KUNNR-LOW").text = account_from
     session.findById("wnd[0]/usr/ctxtDD_KUNNR-HIGH").text = account_to
@@ -220,7 +222,7 @@ def ZFIQ02_Intercompañias(sociedades,ZFIQ02_Intercompañias_File):
     connection = application.Children(0)
     session = connection.Children(0)
     session.findById("wnd[0]").maximize
-    session.findById("wnd[0]/tbar[0]/okcd").text = "ZFIQ02"
+    session.findById("wnd[0]/tbar[0]/okcd").text = "/nZFIQ02"
     session.findById("wnd[0]").sendVKey(0)
     session.findById("wnd[0]/usr/btn%_SP$00002_%_APP_%-VALU_PUSH").press()
     for i, valor in enumerate(sociedades, start=0):
@@ -277,7 +279,7 @@ def FBL3N(resultado,sociedades,DateFrom, DateTo,FolderPath,FileName):
     connection = application.Children(0)
     session = connection.Children(0)
     session.findById("wnd[0]").maximize
-    session.findById("wnd[0]/tbar[0]/okcd").text = "FBL3N"
+    session.findById("wnd[0]/tbar[0]/okcd").text = "/nFBL3N"
     session.findById("wnd[0]").sendVKey(0)
     session.findById("wnd[0]/tbar[1]/btn[16]").press()
     session.findById("wnd[0]/usr/ssub%_SUBSCREEN_%_SUB%_CONTAINER:SAPLSSEL:2001/ssubSUBSCREEN_CONTAINER2:SAPLSSEL:2000/cntlSUB_CONTAINER/shellcont/shellcont/shell/shellcont[1]/shell").collapseNode("          1")
