@@ -20,6 +20,7 @@ class IntercompaniasGUI:
         self.light_gray = "#F5F5F5"
         self.border_color = "#E0E0E0"
         self.success_color = "#28A745"
+        self.large_color = "#1565C0"   # azul para el botón de sociedades grandes
 
         self.root.configure(bg=self.bg_color)
 
@@ -27,8 +28,7 @@ class IntercompaniasGUI:
         self.sociedades_list = []
         self.on_download = None
         self.on_consolidation = None
-        # Modo de consolidación: "manual" usa cuentas de Configuración;
-        # "automatico" toma todas las cuentas presentes en los archivos FBL3N.
+        self.on_download_large = None   # nuevo callback para descarga por chunks
         self.consolidation_mode = tk.StringVar(value="manual")
 
         # Diccionarios configurables
@@ -69,20 +69,13 @@ class IntercompaniasGUI:
         )
 
         self._create_project_folders()
-
         self._build_ui()
         self._load_all_configs()
         self._refresh_proveedores_tree()
         self._refresh_clientes_tree()
 
     def _create_project_folders(self):
-        """Crea toda la estructura de carpetas al iniciar la app"""
-        folders = [
-            self.input_path,
-            self.clientes_path,
-            self.output_path,
-            self.config_path,
-        ]
+        folders = [self.input_path, self.clientes_path, self.output_path, self.config_path]
         for folder in folders:
             os.makedirs(folder, exist_ok=True)
 
@@ -498,13 +491,13 @@ class IntercompaniasGUI:
         self.clientes_tree.bind("<<TreeviewSelect>>", self.on_select_cliente)
 
     # ------------------------------------------------------------------
-    # Pestaña Proceso – botones de acción (MODIFICADO: agrega RadioButtons)
+    # Pestaña Proceso – botones de acción
     # ------------------------------------------------------------------
     def _build_action_buttons(self, parent):
         button_frame = tk.Frame(parent, bg=self.bg_color)
         button_frame.pack(pady=(10, 0))
 
-        # ── Botón Descargar ────────────────────────────────────────────
+        # ── Botón Descargar Normal ─────────────────────────────────────
         self.download_btn = tk.Button(
             button_frame,
             text="⚡ Descargar Documentos",
@@ -521,7 +514,91 @@ class IntercompaniasGUI:
             activeforeground=self.bg_color,
             width=25,
         )
-        self.download_btn.pack(pady=(0, 20))
+        self.download_btn.pack(pady=(0, 10))
+
+        # ── Grupo Descarga por Chunks (Sociedades Grandes) ─────────────
+        large_group = tk.LabelFrame(
+            button_frame,
+            text="  Descarga de Sociedades Grandes  ",
+            font=("Segoe UI", 9, "bold"),
+            bg=self.bg_color,
+            fg=self.large_color,
+            bd=1,
+            relief=tk.SOLID,
+            padx=20,
+            pady=12,
+        )
+        large_group.pack(fill="x", pady=(0, 10))
+
+        # Campo: días por chunk
+        chunk_frame = tk.Frame(large_group, bg=self.bg_color)
+        chunk_frame.pack(anchor="w", pady=(0, 6))
+
+        tk.Label(
+            chunk_frame,
+            text="Días por chunk:",
+            font=("Segoe UI", 9),
+            bg=self.bg_color,
+            fg=self.secondary_color,
+        ).pack(side=tk.LEFT, padx=(0, 10))
+
+        self.chunk_days_var = tk.StringVar(value="5")
+        tk.Entry(
+            chunk_frame,
+            textvariable=self.chunk_days_var,
+            width=5,
+            font=("Segoe UI", 10),
+            bg=self.light_gray,
+            fg=self.primary_color,
+            relief=tk.FLAT,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=self.border_color,
+            highlightcolor=self.large_color,
+            justify="center",
+        ).pack(side=tk.LEFT)
+
+        tk.Label(
+            chunk_frame,
+            text="(ej: 5 → descarga de 5 días en 5 días)",
+            font=("Segoe UI", 8),
+            bg=self.bg_color,
+            fg="#888888",
+        ).pack(side=tk.LEFT, padx=(10, 0))
+
+        # Descripción
+        tk.Label(
+            large_group,
+            text=(
+                "Divide el intervalo de fechas en bloques para evitar el error de memoria "
+                "en SAP. Cada bloque se descarga por separado y luego se apilan en un solo "
+                "archivo dentro de Input/Proveedores e Input/Clientes."
+            ),
+            font=("Segoe UI", 8),
+            bg=self.bg_color,
+            fg="#666666",
+            wraplength=520,
+            justify=tk.LEFT,
+        ).pack(anchor="w", pady=(0, 10))
+
+        # Botón ejecutar descarga por chunks
+        self.download_large_btn = tk.Button(
+            large_group,
+            text="🏢 Descargar Sociedades Grandes",
+            command=self._handle_download_large,
+            font=("Segoe UI", 11, "bold"),
+            bg=self.large_color,
+            fg=self.bg_color,
+            relief=tk.RAISED,
+            bd=2,
+            padx=30,
+            pady=12,
+            cursor="hand2",
+            activebackground="#0D47A1",
+            activeforeground=self.bg_color,
+            width=25,
+        )
+        self.download_large_btn.pack()
 
         # ── Grupo Consolidación ────────────────────────────────────────
         consolidation_group = tk.LabelFrame(
@@ -537,7 +614,6 @@ class IntercompaniasGUI:
         )
         consolidation_group.pack(fill="x", pady=(0, 5))
 
-        # Radio buttons: Manual / Automático
         mode_frame = tk.Frame(consolidation_group, bg=self.bg_color)
         mode_frame.pack(anchor="w", pady=(0, 6))
 
@@ -577,7 +653,6 @@ class IntercompaniasGUI:
             command=self._on_mode_change,
         ).pack(side=tk.LEFT)
 
-        # Descripción dinámica del modo
         self.mode_desc_var = tk.StringVar(
             value="Usa las cuentas configuradas manualmente en la pestaña Configuración."
         )
@@ -591,7 +666,6 @@ class IntercompaniasGUI:
             justify=tk.LEFT,
         ).pack(anchor="w", pady=(0, 12))
 
-        # Botón ejecutar consolidación
         self.consolidate_btn = tk.Button(
             consolidation_group,
             text="📊 Conciliación / Consolidación",
@@ -611,7 +685,6 @@ class IntercompaniasGUI:
         self.consolidate_btn.pack()
 
     def _on_mode_change(self):
-        """Actualiza la descripción según el modo seleccionado."""
         if self.consolidation_mode.get() == "manual":
             self.mode_desc_var.set(
                 "Usa las cuentas configuradas manualmente en la pestaña Configuración."
@@ -795,9 +868,6 @@ class IntercompaniasGUI:
                 f"No se pudo cargar el TXT de clientes.\nSe usarán valores por defecto.\n\nDetalle:\n{e}"
             )
 
-    # =========================
-    # LOAD ALL
-    # =========================
     def _load_all_configs(self):
         self._load_proveedores_from_txt()
         self._load_clientes_from_txt()
@@ -860,6 +930,17 @@ class IntercompaniasGUI:
             messagebox.showerror("Error", "Formato de fecha inválido. Use DD.MM.YYYY")
             return False
 
+    def validate_chunk_days(self):
+        """Valida que el campo de días por chunk sea un entero positivo."""
+        try:
+            days = int(self.chunk_days_var.get().strip())
+            if days <= 0:
+                raise ValueError
+            return days
+        except ValueError:
+            messagebox.showerror("Error", "Los días por chunk deben ser un número entero positivo.")
+            return None
+
     def get_config(self):
         self.input_path = os.path.normpath(self.input_path_var.get().strip())
         self.clientes_path = os.path.normpath(self.clientes_path_var.get().strip())
@@ -878,9 +959,8 @@ class IntercompaniasGUI:
             "fbl5n_range_to":   self.fbl5n_to_var.get().strip(),
             "cuentas_proveedores_por_sociedad": self.cuentas_proveedores_por_sociedad,
             "cuentas_clientes_por_sociedad": self.cuentas_clientes_por_sociedad,
-            # "manual" → usa diccionarios de Configuración
-            # "automatico" → usa todas las cuentas de los archivos FBL3N
             "consolidation_mode": self.consolidation_mode.get(),
+            "chunk_days": self.chunk_days_var.get().strip(),
         }
 
     def set_status(self, message):
@@ -889,10 +969,12 @@ class IntercompaniasGUI:
 
     def disable_buttons(self):
         self.download_btn.config(state="disabled", bg="#666666")
+        self.download_large_btn.config(state="disabled", bg="#666666")
         self.consolidate_btn.config(state="disabled", bg="#666666")
 
     def enable_buttons(self):
         self.download_btn.config(state="normal", bg=self.primary_color)
+        self.download_large_btn.config(state="normal", bg=self.large_color)
         self.consolidate_btn.config(state="normal", bg=self.success_color)
 
     def _handle_download(self):
@@ -900,6 +982,16 @@ class IntercompaniasGUI:
             return
         if self.on_download:
             self.on_download()
+        else:
+            messagebox.showinfo("Info", f"Funcionalidad no conectada\n\n{self.get_config()}")
+
+    def _handle_download_large(self):
+        if not self.validate_dates():
+            return
+        if self.validate_chunk_days() is None:
+            return
+        if self.on_download_large:
+            self.on_download_large()
         else:
             messagebox.showinfo("Info", f"Funcionalidad no conectada\n\n{self.get_config()}")
 
