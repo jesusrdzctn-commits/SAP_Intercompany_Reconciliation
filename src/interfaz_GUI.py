@@ -11,6 +11,7 @@ class IntercompaniasGUI:
         self.root.title("Extracción de Documentos - Intercompañías")
         self.root.geometry("900x780")
         self.root.resizable(False, False)
+        tamano_bloque_fbl3n = 500
 
         # Color scheme
         self.bg_color = "#FFFFFF"
@@ -52,6 +53,7 @@ class IntercompaniasGUI:
         }
 
         # Dynamic paths
+        
         user_profile = os.environ.get("USERPROFILE") or os.path.expanduser("~")
         base_path = os.path.join(
             user_profile, "Documents", "Intercompañias", "RDA_Intercompanias", "src"

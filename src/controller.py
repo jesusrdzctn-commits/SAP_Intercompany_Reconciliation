@@ -12,7 +12,6 @@ from Consolidacion_V2 import ejecutar_consolidacion_por_sociedad
 
 class IntercompaniasController:
     """Controller class that handles the business logic for the Intercompañías application"""
-
     def __init__(self, gui):
         self.gui = gui
         self.gui.on_download = self.execute_download
@@ -244,7 +243,24 @@ class IntercompaniasController:
             self.gui.enable_buttons()
             if "completada" not in self.gui.status_var.get():
                 self.gui.set_status("✓ Listo para comenzar")
+#----------------Esta funcion divide el listado de resultado en partes pequeñas para procesar mejor la info en SAP                
+    def _dividir_en_bloques(self, lista, tamano_bloque):
+        """
+        Divide una lista en bloques más pequeños.
 
+        Ejemplo:
+        lista de 2300 documentos con tamano_bloque=1000:
+        bloque 1 = 1000
+        bloque 2 = 1000
+        bloque 3 = 300
+        """
+        if not lista:
+            return []
+
+        return [
+            lista[i:i + tamano_bloque]
+            for i in range(0, len(lista), tamano_bloque)
+        ]
     def _run_chunked_download(self, config, chunk_days):
         """Lógica principal del chunking: divide el periodo, descarga cada bloque y apila."""
         try:
@@ -263,15 +279,16 @@ class IntercompaniasController:
             fbl5n_from   = config['fbl5n_range_from']
             fbl5n_to     = config['fbl5n_range_to']
 
+            tamano_bloque_docs = config.get("tamano_bloque_docs", 2500)
             # Generar lista de chunks
             chunks = self._generar_chunks(date_from, date_to, chunk_days)
-
+            print(f"[CHUNKS] Rango {config['date_from']} - {config['date_to']} dividido en {len(chunks)} chunks de {chunk_days} días cada uno.")
             for idx_soc, sociedad in enumerate(config['sociedades'], 1):
                 self.gui.set_status(
                     f"🏢 Procesando sociedad grande {sociedad} "
                     f"({idx_soc}/{len(config['sociedades'])}) — {len(chunks)} chunks..."
                 )
-
+                print(f"Procesando sociedad grande {sociedad}")
                 # Carpetas temporales por sociedad
                 tmp_prov = os.path.join(FolderPath,   f"_chunks_{sociedad}")
                 tmp_cli  = os.path.join(ClientesPath, f"_chunks_{sociedad}")
@@ -295,50 +312,93 @@ class IntercompaniasController:
 
                     # ── FBL1N chunk ───────────────────────────────────
                     fbl1n_fname = f"FBL1_Proveedores_{sociedad}_chunk{idx_chunk:03d}.xlsx"
+                    print(f"Descargando FBL1N chunk {idx_chunk} para {sociedad} ({chunk_from_str} - {chunk_to_str})...") 
                     fbl1n_path  = os.path.join(tmp_prov, fbl1n_fname)
                     fbl1n_ok = FBL1N_Intercompañias(
                         [sociedad], chunk_from_str, chunk_to_str,
                         tmp_prov, fbl1n_fname, fbl1n_from, fbl1n_to
                     )
                     time.sleep(8)
+                    print(f"FBL1 con resultado {fbl1n_ok}")
                     self._cerrar_workbook_excel(fbl1n_path)
 
                     if fbl1n_ok:
+                        print(f"Chunk {idx_chunk}: FBL1N con datos → {fbl1n_path}")
                         chunks_fbl1n.append(fbl1n_path)
-
+                    else:
+                        print(f"Chunk {idx_chunk}: FBL1N sin datos → se omite FBL3N Proveedores para este chunk")
                     # ── ZFIQ02 (una sola vez, primer chunk con éxito) ──
                     if not chunks_zfiq02:
                         zfiq02_fname = f"ZFIQ02_Proveedores_{sociedad}.xlsx"
                         zfiq02_path  = os.path.join(tmp_prov, zfiq02_fname)
+                        
                         ZFIQ02_Intercompañias([sociedad], zfiq02_path)
                         if os.path.exists(zfiq02_path):
                             chunks_zfiq02.append(zfiq02_path)
-
+                        print(f"Descargando ZFIQ02 para {sociedad} (solo en el primer chunk exitoso)...")
                     # ── FBL3N Proveedores chunk ───────────────────────
                     if fbl1n_ok:
                         df_fbl1 = pd.read_excel(fbl1n_path, engine='openpyxl')
                         col_ndoc = df_fbl1.columns[6]
                         resultado = df_fbl1[col_ndoc].dropna().astype(str).unique().tolist()
 
-                        fbl3n_p_fname = f"FBL3N_Proveedores_{sociedad}_chunk{idx_chunk:03d}.xlsx"
-                        fbl3n_p_path  = os.path.join(tmp_prov, fbl3n_p_fname)
-                        if os.path.exists(fbl3n_p_path):
-                            os.remove(fbl3n_p_path)
-
-                        fbl3n_p_ok = FBL3N(
-                            resultado, [sociedad],
-                            chunk_from_str, chunk_to_str,
-                            tmp_prov, fbl3n_p_fname
+                        print(
+                            f"Chunk {idx_chunk}: {len(resultado)} documentos únicos en FBL1N "
+                            f"→ descargar FBL3N Proveedores"
                         )
-                        time.sleep(8)
-                        self._cerrar_workbook_excel(fbl3n_p_path)
 
-                        if fbl3n_p_ok:
-                            chunks_fbl3n_p.append(fbl3n_p_path)
+                        bloques_docs = self._dividir_en_bloques(resultado, tamano_bloque_docs)
+
+                        print(
+                            f"Chunk {idx_chunk}: documentos divididos en "
+                            f"{len(bloques_docs)} bloques de máximo {tamano_bloque_docs}."
+                        )
+
+                        for idx_bloque_doc, bloque_docs in enumerate(bloques_docs, 1):
+
+                            fbl3n_p_fname = (
+                                f"FBL3N_Proveedores_{sociedad}_"
+                                f"chunk{idx_chunk:03d}_docs{idx_bloque_doc:03d}.xlsx"
+                            )
+
+                            fbl3n_p_path = os.path.join(tmp_prov, fbl3n_p_fname)
+
+                            if os.path.exists(fbl3n_p_path):
+                                os.remove(fbl3n_p_path)
+
+                            print(
+                                f"Descargando FBL3N Proveedores "
+                                f"chunk {idx_chunk}/{len(chunks)} "
+                                f"bloque docs {idx_bloque_doc}/{len(bloques_docs)} "
+                                f"para {len(bloque_docs)} documentos en {sociedad} "
+                                f"({chunk_from_str} - {chunk_to_str})..."
+                            )
+
+                            fbl3n_p_ok = FBL3N(
+                                bloque_docs,
+                                [sociedad],
+                                chunk_from_str,
+                                chunk_to_str,
+                                tmp_prov,
+                                fbl3n_p_fname
+                            )
+
+                            time.sleep(8)
+                            self._cerrar_workbook_excel(fbl3n_p_path)
+
+                            if fbl3n_p_ok and os.path.exists(fbl3n_p_path):
+                                print(f"Chunk {idx_chunk} Bloque {idx_bloque_doc}: FBL3N Proveedores con datos → {fbl3n_p_path}")
+                                chunks_fbl3n_p.append(fbl3n_p_path)
+                            else:
+                                print(f"Chunk {idx_chunk} Bloque {idx_bloque_doc}: FBL3N Proveedores sin datos → se omite este bloque")
 
                     # ── FBL5N chunk ───────────────────────────────────
                     fbl5n_fname = f"FBL5N_Clientes_{sociedad}_chunk{idx_chunk:03d}.xlsx"
                     fbl5n_path  = os.path.join(tmp_cli, fbl5n_fname)
+                    print(f"Descargando FBL5N chunk {idx_chunk} para {sociedad} ({chunk_from_str} - {chunk_to_str})...")
+
+                    #descargando la mitad de los datos
+
                     fbl5n_ok = FBL5_Intercompañias(
                         [sociedad], chunk_from_str, chunk_to_str,
                         tmp_cli, fbl5n_fname, fbl5n_from, fbl5n_to
@@ -348,44 +408,81 @@ class IntercompaniasController:
 
                     if fbl5n_ok:
                         chunks_fbl5n.append(fbl5n_path)
+                        print(f"Chunk {idx_chunk}: FBL5N con datos → {fbl5n_path}")
+                    else:
+                        print(f"Chunk {idx_chunk}: FBL5N sin datos → se omite FBL3N Clientes para este chunk")
 
                     # ── FBL3N Clientes chunk ──────────────────────────
-                    if fbl5n_ok:
-                        df_fbl5 = pd.read_excel(fbl5n_path, engine='openpyxl')
-                        col_ndoc_cli = df_fbl5.columns[8]
-                        resultado_cli = df_fbl5[col_ndoc_cli].dropna().astype(str).unique().tolist()
+                if fbl5n_ok:
+                    df_fbl5 = pd.read_excel(fbl5n_path, engine='openpyxl')
+                    col_ndoc_cli = df_fbl5.columns[8]
+                    resultado_cli = df_fbl5[col_ndoc_cli].dropna().astype(str).unique().tolist()
 
-                        fbl3n_c_fname = f"FBL3N_Clientes_{sociedad}_chunk{idx_chunk:03d}.xlsx"
-                        fbl3n_c_path  = os.path.join(tmp_cli, fbl3n_c_fname)
+                    bloques_docs_cli = self._dividir_en_bloques(resultado_cli, tamano_bloque_docs)
+
+                    print(
+                        f"Chunk {idx_chunk}: {len(resultado_cli)} documentos únicos en FBL5N "
+                        f"→ descargar FBL3N Clientes en {len(bloques_docs_cli)} bloques "
+                        f"de máximo {tamano_bloque_docs}."
+                    )
+
+                    for idx_bloque_doc_cli, bloque_docs_cli in enumerate(bloques_docs_cli, 1):
+
+                        fbl3n_c_fname = (
+                            f"FBL3N_Clientes_{sociedad}_"
+                            f"chunk{idx_chunk:03d}_docs{idx_bloque_doc_cli:03d}.xlsx"
+                        )
+
+                        fbl3n_c_path = os.path.join(tmp_cli, fbl3n_c_fname)
+
                         if os.path.exists(fbl3n_c_path):
                             os.remove(fbl3n_c_path)
 
-                        fbl3n_c_ok = FBL3N(
-                            resultado_cli, [sociedad],
-                            chunk_from_str, chunk_to_str,
-                            tmp_cli, fbl3n_c_fname
+                        print(
+                            f"Descargando FBL3N Clientes "
+                            f"chunk {idx_chunk}/{len(chunks)} "
+                            f"bloque docs {idx_bloque_doc_cli}/{len(bloques_docs_cli)} "
+                            f"para {len(bloque_docs_cli)} documentos en {sociedad} "
+                            f"({chunk_from_str} - {chunk_to_str})..."
                         )
+
+                        fbl3n_c_ok = FBL3N(
+                            bloque_docs_cli,
+                            [sociedad],
+                            chunk_from_str,
+                            chunk_to_str,
+                            tmp_cli,
+                            fbl3n_c_fname
+                        )
+
                         time.sleep(8)
                         self._cerrar_workbook_excel(fbl3n_c_path)
 
-                        if fbl3n_c_ok:
+                        if fbl3n_c_ok and os.path.exists(fbl3n_c_path):
                             chunks_fbl3n_c.append(fbl3n_c_path)
-
+                        else:
+                            print(f"Chunk {idx_chunk} Bloque {idx_bloque_doc}: FBL3N Clientes sin datos → se omite este bloque")
                     time.sleep(3)
 
                 # ── Apilar chunks en archivos finales ─────────────────
                 self.gui.set_status(f"📋 [{sociedad}] Apilando chunks en archivos finales...")
-
+                print(f"Apilando chunks para {sociedad} en archivos finales...")
                 fbl1n_final   = os.path.join(FolderPath,   f"FBL1_Proveedores_{sociedad}.xlsx")
                 zfiq02_final  = os.path.join(FolderPath,   f"ZFIQ02_Proveedores_{sociedad}.xlsx")
                 fbl3n_p_final = os.path.join(FolderPath,   f"FBL3N_Proveedores_{sociedad}.xlsx")
                 fbl5n_final   = os.path.join(ClientesPath, f"FBL5N_Clientes_{sociedad}.xlsx")
                 fbl3n_c_final = os.path.join(ClientesPath, f"FBL3N_Clientes_{sociedad}.xlsx")
-
-                self._apilar_chunks(chunks_fbl1n,   fbl1n_final,   sociedad, "FBL1N")
-                self._apilar_chunks(chunks_fbl3n_p, fbl3n_p_final, sociedad, "FBL3N Proveedores")
-                self._apilar_chunks(chunks_fbl5n,   fbl5n_final,   sociedad, "FBL5N")
+                
+                print(f"Apilando FBL1N...{chunks_fbl1n.__len__()} chunks con datos")
+                print(f"Apilando FBL3N Proveedores...{chunks_fbl3n_p.__len__()} chunks con datos")
+                print(f"Apilando FBL5N...{chunks_fbl5n.__len__()} chunks con datos")
+                print(f"Apilando FBL3N Clientes...{chunks_fbl3n_c.__len__()} chunks con datos")
+                
                 self._apilar_chunks(chunks_fbl3n_c, fbl3n_c_final, sociedad, "FBL3N Clientes")
+                self._apilar_chunks(chunks_fbl5n,   fbl5n_final,   sociedad, "FBL5N Clientes")
+                self._apilar_chunks(chunks_fbl3n_p, fbl3n_p_final, sociedad, "FBL3N Proveedores")
+                self._apilar_chunks(chunks_fbl1n,   fbl1n_final,   sociedad, "FBL1N Proveedores")
+
 
                 # ZFIQ02: copiar el primero que se descargó (no necesita apilarse)
                 if chunks_zfiq02:
@@ -417,6 +514,7 @@ class IntercompaniasController:
             except Exception:
                 pass
 
+    
     @staticmethod
     def _generar_chunks(date_from, date_to, chunk_days):
         """
