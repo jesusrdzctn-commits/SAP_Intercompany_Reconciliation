@@ -1,10 +1,7 @@
 venv/
 __pycache__/
 
-src/Input/Proveedores/
-src/Input/Clientes/**
-# Excepto este archivo específico
-!src/Input/Clientes/Clientes_Catalogo.xls
+src/Input/
 
 src/Output/
 src/config/
